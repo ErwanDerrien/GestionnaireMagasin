@@ -1,0 +1,27 @@
+@startuml ProcessViewSwitchCase
+
+start
+:Lire commande utilisateur;
+partition Console {
+  :Afficher menu;
+  :Lire entrée;
+}
+
+switch (Commande)
+case ("vente")
+  :Lire produits;
+  :Calculer total;
+  :Appeler VenteService;
+case ("retour")
+  :Demander ID vente;
+  :Annuler vente;
+case ("produit")
+  :Lire critère;
+  :Rechercher produit;
+case ("commande non-supportée")
+  :Afficher message d'erreur;
+endswitch
+
+stop
+
+@enduml

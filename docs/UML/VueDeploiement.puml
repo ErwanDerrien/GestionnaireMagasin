@@ -1,0 +1,51 @@
+@startuml DevelopmentView
+
+node "Store Front" {
+  actor "employee"
+  node "caisse1" as caisse1
+  node "caisse2" as caisse2
+  node "caisse3" as caisse3
+  node "console" as console
+}
+
+node "Système de caisse - Lancé avec docker-compose" {
+  left to right direction
+  
+  node "controller" {
+    artifact "store_manager.py" as store_manager
+  }
+  node "view" {
+    artifact "console_view.py" as console_view
+  }
+  node "services" {
+    artifact "order_services.py" as order_services
+    artifact "product_services.py" as product_services
+  }
+  node "persistence" {
+    artifact "ORM" as orm
+    database "database.py" as db
+  }
+}
+
+node "Store Warehouse" {
+  node "inventory" as inv
+}
+
+
+db -- inv : "digital representation of stock"
+
+employee -- caisse1
+employee -- caisse2
+employee -- caisse3
+caisse1 -- console
+caisse2 -- console
+caisse3 -- console
+console -- store_manager
+store_manager -- console_view
+store_manager -- order_services
+store_manager -- product_services
+order_services -- orm
+product_services -- orm
+orm -- db
+
+@enduml
