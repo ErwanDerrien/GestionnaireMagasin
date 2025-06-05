@@ -1,17 +1,8 @@
 #src/Services/order_services.py
-from data.database import session, Product, Order, Base, engine
-from src.Views.console_view import (
-    display_welcome_message,
-    display_goodbye_message,
-    display_error,
-    display_stock,
-    display_message,
-    prompt_reset_database,
-    prompt_command,
-    display_products,
-    format_products,
-    format_orders,
-)
+from data.database import session
+from src.Models.product import Product
+from src.Models.order import Order
+from src.Views.console_view import format_orders
 def save_order(command: str) -> str :
     try:
         # Extraire les IDs des produits

@@ -1,5 +1,5 @@
 # src/Views/console_view.py
-from data.database import Product
+from src.Models.product import Product
 def display_welcome_message():
     print('\nBienvenue dans le gestionnaire de magasin !')
     print('Entrez "exit" ou "quit" pour quitter.')

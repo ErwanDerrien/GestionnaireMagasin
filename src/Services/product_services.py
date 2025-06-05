@@ -1,41 +1,28 @@
 # src/Services/product_services.py
-from data.database import session, Product, Order, Base, engine
-from src.Views.console_view import (
-    display_welcome_message,
-    display_goodbye_message,
-    display_error,
-    display_stock,
-    display_message,
-    prompt_reset_database,
-    prompt_command,
-    display_products,
-    format_products,
-    format_orders,
-)
+from src.DAO.product_dao import get
+from src.Models.product import Product
+from data.database import session
+
 def search_product(command: str) -> str:
-    """
-    Recherche des produits en fonction d'un terme
-    """
     search_term = command[3:].strip()
-    try:
+    # products = get(search_term)
+    if search_term.isnumeric():
         search_id = int(search_term)
-        products = session.query(Product).filter(
+        all_products = get()
+        products = all_products.filter(
             (Product.id == search_id) |
             (Product.name.contains(search_term)) |
             (Product.category.contains(search_term))
         ).all()
-    except ValueError:
+    else:
         # Si ce n'est pas un nombre, recherche seulement par nom et catégorie
         products = session.query(Product).filter(
             (Product.name.contains(search_term)) |
             (Product.category.contains(search_term))
         ).all()
-    
     if not products:
         return "Aucun produit trouvé."
-    
-    # Retourne les résultats formatés
-    return format_products(products)
+    return products
 
 def stock_status(command: str) -> dict:
     all_products = session.query(Product).order_by(Product.id).all()

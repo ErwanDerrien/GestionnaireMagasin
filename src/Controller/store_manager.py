@@ -1,7 +1,8 @@
 # src/Controller/store_manager.py
-from data.database import session, Product, Order, Base, engine
+from data.database import session, Base, engine
+from src.Models.product import Product
 from src.Services.product_services import search_product, stock_status
-from src.Services.order_services import save_order, return_order
+from src.Services.order_services import orders_status, save_order, return_order
 from src.Views.console_view import (
     display_welcome_message,
     display_goodbye_message,
@@ -22,7 +23,8 @@ def analyse_input(user_input: str) -> str:
         return 'Exit'
 
     elif command.startswith('rp'):
-        return search_product(command)
+        products = search_product(command)
+        return format_products(products)
 
     elif command.startswith('ev '):
         return save_order(command)
