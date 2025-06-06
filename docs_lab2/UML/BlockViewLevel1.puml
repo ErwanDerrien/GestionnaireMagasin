@@ -1,0 +1,22 @@
+@startuml Niveau1
+skinparam {
+  BackgroundColor #F5F5F5
+  ComponentBorderColor #333
+  ComponentFontColor #333
+}
+
+
+package "Système de Gestion de Magasins" as system {
+  [Gestion des Stocks] as stocks
+  [Génération de Rapports] as rapports
+}
+
+[Interface Utilisateur] as ui
+database "MySQL" as db
+
+stocks -r-> db
+rapports --> db
+ui --> stocks
+ui --> rapports
+
+@enduml

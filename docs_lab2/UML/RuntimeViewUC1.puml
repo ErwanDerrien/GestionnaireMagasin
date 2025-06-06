@@ -1,0 +1,58 @@
+@startuml UC1 - Génération et consultation de rapport
+
+' === Personnalisation visuelle ===
+skinparam {
+    BackgroundColor #F5F5F5
+    ActorBorderColor #333
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantBorderColor #666
+    ArrowColor #1E90FF
+}
+
+actor "Gestionnaire" as ge
+participant "Interface\nGraphique" as ui
+participant "API REST" as api
+participant "ReportController" as controller
+participant "ReportService" as service
+database "Base de Données\nMySQL" as db
+
+== Génération du Rapport ==
+
+ge -> ui : "Générer le rapport mensuel"
+activate ui
+
+ui -> api : GET /api/v1/reports
+activate api
+
+api -> controller : generateReports()
+activate controller
+
+controller -> service : getSalesOverview()
+activate service
+
+service -> db : SELECT product_id,\nname, quantity_sold,\nrevenue FROM products
+activate db
+db --> service : Résultats des ventes
+deactivate db
+
+controller -> service : getOrdersOverview()
+activate service
+
+service -> db : SELECT order_id,\ndate, total_amount FROM orders
+activate db
+db --> service : Résultats des commandes
+deactivate db
+
+controller -> controller : Construire le rapport consolidé
+deactivate service
+
+controller --> api : 200 OK (PDF ou JSON)
+deactivate controller
+
+api --> ui : Rapport prêt à être affiché
+deactivate api
+
+ui --> ge : Affiche le rapport généré
+deactivate ui
+
+@enduml

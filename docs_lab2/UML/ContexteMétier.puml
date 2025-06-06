@@ -1,0 +1,35 @@
+@startuml ContexteMétier
+
+left to right direction
+
+skinparam {
+  BackgroundColor #FFFFFF
+  ArrowColor #003366
+  ActorBorderColor #003366
+  ActorFontStyle bold
+  ActorFontColor #003366
+  UsecaseBorderColor #003366
+  UsecaseFontColor #003366
+}
+
+actor "Siège Social" as siege
+actor "Magasins (5)" as magasins
+actor "Centre Logistique" as logistique
+actor "Employés\nde magasin" as employes
+
+rectangle "Système Central" as system {
+  usecase "Gestion des stocks\nmulti-magasins" as stocks
+  usecase "Génération de\nrapports consolidés" as rapports
+  usecase "Tableaux de bord\nde performance" as dashboard
+  
+  stocks - rapports
+  rapports - dashboard
+}
+
+magasins --> stocks : "API REST (JSON)\nMise à jour stocks"
+logistique --> stocks : "API REST (JSON)\nDemandes réappro"
+siege --> dashboard : "Web (HTTPS/JSON)\nConsultation performance"
+siege --> rapports : "Web (HTTPS/JSON)\nConsultation rapports"
+employes --> stocks : "Web (HTTPS/JSON)\nSaisie des ventes"
+
+@enduml

@@ -1,0 +1,17 @@
+@startuml Niveau2
+skinparam {
+  BackgroundColor #F5F5F5
+  ComponentStyle rectangle
+}
+
+component "Gestion des Stocks" as stocks {
+  [Service Stock] as service
+  [DAO MySQL] as dao
+}
+
+database "MySQL" as db
+
+
+service --> dao
+dao --> db
+@enduml

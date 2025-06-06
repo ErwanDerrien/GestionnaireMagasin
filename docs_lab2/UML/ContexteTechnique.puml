@@ -1,0 +1,45 @@
+@startuml ContexteTechnique
+
+skinparam {
+    BackgroundColor #F9F9F9
+    ArrowColor #333333
+    ComponentBorderColor #333333
+    ComponentFontColor #333333
+    DatabaseBorderColor #228B22
+    QueueBorderColor #FF8C00
+    InterfaceBorderColor #1E90FF
+}
+
+rectangle "Système Central" as sc {
+    component "Gestion des Stocks" as stocks #FFD700
+    component "Génération de rapports" as rapports #9370DB
+    database "MySQL" as db #228B22
+}
+
+cloud {
+    component "CI/CD Lab 1" as cicd #FF6347
+    component "Docker" as docker #2496ED
+}
+
+rectangle "Caisse 1" as c1
+rectangle "Caisse 2" as c2
+rectangle "Caisse 3" as c3
+
+stocks --> db : "Persistance\nprincipale"
+rapports --> db : "Persistance\nprincipale"
+
+cicd ...> sc : "Déploiement"
+docker ...> sc : "Conteneurisation"
+
+
+sc ---- c1
+sc ---- c2 : "API Rest"
+sc ---- c3
+
+note left of docker
+    Contraintes d'intégration:
+    - Doit coexister avec le CI/CD existant
+    - Doit fonctionner en container Docker
+end note
+
+@enduml

@@ -1,0 +1,78 @@
+@startuml UC2 - Consulter le stock et réapprovisionnement
+
+skinparam {
+  BackgroundColor #FFFFFF
+  ActorBorderColor #333333
+  ParticipantBackgroundColor #F5F5F5
+  SequenceMessageAlign reverse
+}
+
+actor "Employé" as employe <<Person>>
+participant "Interface\nGraphique" as interface
+participant "API REST" as api
+participant "StockController" as controller
+participant "StockService" as service
+database "Base de Données\nMySQL" as db
+
+== Consultation du Stock ==
+
+employe -> interface : "Consulter stock central"
+activate interface
+interface -> api : GET /api/stocks
+activate api
+api -> controller : getAllStocks()
+activate controller
+controller -> service : getGlobalStock()
+activate service
+service -> db : SELECT product_id, name, quantity,\nSUM(quantity) as total FROM stock\nGROUP BY product_id, name
+activate db
+db --> service : ResultSet
+deactivate db
+service --> controller : List<StockDTO>
+deactivate service
+controller --> api : ResponseEntity<List<StockDTO>>
+deactivate controller
+api --> interface : 200 OK (JSON)
+deactivate api
+interface --> employe : Affichage tableau des stocks
+deactivate interface
+
+== Réapprovisionnement ==
+
+employe -> interface : "Demander réapprovisionnement\n[Produit X, Quantité Y]"
+activate interface
+interface -> api : POST /api/stocks/replenish\n{productId, quantity, storeId}
+activate api
+api -> controller : requestReplenishment(replenishDTO)
+activate controller
+
+alt Stock insuffisant
+    controller -> service : checkStockLevel(productId, quantity)
+    activate service
+    service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = ?
+    db --> service : quantity
+    service --> controller : false (stock < seuil)
+    deactivate service
+    
+    controller -> service : createReplenishmentOrder(replenishDTO)
+    activate service
+    service -> db : INSERT INTO replenishment_orders\n(product_id, quantity, store_id, status, date)\nVALUES (?, ?, ?, 'PENDING', NOW())
+    db --> service : ID
+    service -> db : UPDATE stock SET quantity = quantity + ?\nWHERE product_id = ? AND store_id = ?
+    db --> service : rows updated
+    service --> controller : ReplenishmentResponse
+    deactivate service
+    
+    controller --> api : 201 CREATED
+    api --> interface : "Demande enregistrée"
+else Stock suffisant
+    controller --> api : 400 BAD_REQUEST
+    api --> interface : "Stock suffisant"
+end
+
+deactivate controller
+deactivate api
+interface --> employe : Notification résultat
+deactivate interface
+
+@enduml
