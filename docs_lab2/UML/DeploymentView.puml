@@ -1,0 +1,34 @@
+@startuml Deployment View
+actor Caisser as car
+actor Gestionnaire as ge
+actor Dirigeants as di
+
+
+cloud "Site Web" as sw
+
+artifact Caisse as ca
+artifact Ordinateur as or
+
+artifact Serveur {
+    artifact "Docker Container " {
+        artifact API as api
+        artifact Controller as co
+        artifact Services as se
+        database Database as db
+    }
+}
+
+co - api
+se - co
+se -- db : "ORM"
+
+sw -- api : "API Rest"
+
+sw -- or : "HTTPS"
+sw -- ca : "HTTPS"
+
+ca -- car
+or -- ge
+or -- di
+
+@enduml

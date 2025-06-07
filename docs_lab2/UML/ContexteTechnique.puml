@@ -18,7 +18,7 @@ rectangle "Système Central" as sc {
 
 cloud {
     component "CI/CD Lab 1" as cicd #FF6347
-    component "Docker" as docker #2496ED
+    component "Docker Container" as docker #2496ED
 }
 
 rectangle "Caisse 1" as c1
@@ -32,9 +32,15 @@ cicd ...> sc : "Déploiement"
 docker ...> sc : "Conteneurisation"
 
 
-sc ---- c1
-sc ---- c2 : "API Rest"
-sc ---- c3
+cloud {
+    artifact "Site Web" as sw
+}
+
+sw - docker
+
+sw ---- c1
+sw ---- c2 : "API Rest"
+sw ---- c3
 
 note left of docker
     Contraintes d'intégration:
