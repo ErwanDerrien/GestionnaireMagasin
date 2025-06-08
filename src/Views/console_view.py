@@ -6,7 +6,7 @@ def display_welcome_message():
     print('Commandes :')
     print('rp (rechercher un produit)')
     print('ev id1,id2 (enregistrer une vente)')
-    print('gr id (annuler une commande)')  # Modifié
+    print('gr id (annuler une commande)')
     print('es (état des stocks)')
     print('eo (état des commandes)')
     

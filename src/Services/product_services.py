@@ -23,7 +23,7 @@ def search_product_service(search_term: str) -> str:
         return "Aucun produit trouvé."
     return products
 
-def stock_status(command: str) -> dict:
+def stock_status() -> dict:
     all_products = session.query(Product).order_by(Product.id).all()
     if not all_products:
         return None  # Sera géré par l'affichage comme "Aucun produit en base"

@@ -3,18 +3,31 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from pathlib import Path
 
-# Base de données
+# Configuration existante
 Base = declarative_base()
-
-# Chemin vers la base de données dans le dossier data
 DB_PATH = Path(__file__).parent / "mydatabase.db"
-
-# Moteur SQLite
 engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
-
-# Création des tables
-Base.metadata.create_all(engine)
-
-# Session pour interagir avec la base
 Session = sessionmaker(bind=engine)
 session = Session()
+
+from src.Models.product import Product
+
+def reset_database() -> bool:
+    try:
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+        
+        initial_products = [
+            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10),
+            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20),
+        ]
+        
+        session.add_all(initial_products)
+        session.commit()
+        return True
+        
+    except Exception:
+        session.rollback()
+        return False
+    finally:
+        session.close()
