@@ -1,0 +1,4 @@
+sqlalchemy
+pylint
+pytest
+flask

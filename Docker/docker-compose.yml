@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   store_manager:
     build:
       context: ../
       dockerfile: Dockerfile
-    container_name: store_manager
+    command: python -m src.Controller.store_manager --api  # <-- Ajoute cette ligne
     ports:
-      - "8000:8000"
+      - "8080:8080"
     volumes:
       - ../:/app
