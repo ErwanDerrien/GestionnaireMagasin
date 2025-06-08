@@ -6,3 +6,4 @@ bin
 *.db
 *.sqlite
 *.sqlite3
+.vscode

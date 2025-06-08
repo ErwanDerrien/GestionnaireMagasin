@@ -7,6 +7,42 @@ from src.Services.order_services import orders_status, save_order, return_order
 
 app = Flask(__name__)
 
+@app.route("/login", methods=["POST", "OPTIONS"])
+def login_route():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+        
+    try:
+        data = request.get_json()
+        if not data:
+            return _cors_response({"status": "error", "message": "No data provided"}, 400)
+        
+        # Logique d'authentification
+        if data.get("username") == "manager" and data.get("password") == "test":
+            return _cors_response({"status": "success"}, 200)
+        else:
+            return _cors_response({"status": "fail"}, 401)
+            
+    except Exception as e:
+        return _cors_response({"status": "error", "message": str(e)}, 500)
+
+def _build_cors_preflight_response():
+    response = jsonify({"status": "success"})
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    response.headers.add("Access-Control-Allow-Origin", "http://localhost:8000")
+    response.headers.add("Access-Control-Allow-Headers", 'Access-Control-Allow-Origin, '+ 'Access-Control-Allow-Methods, '+ 'Access-Control-Allow-Headers, '+'Cache-Control, '+'Content-Encoding, '+'Content-Range, '+'Content-Type, '+'Keep-Alive, '+'Location, '+'Vary, '+'X-Amz-Meta-Is-Final')
+    response.headers.add("Access-Control-Expose-Headers", 'Access-Control-Allow-Origin, '+ 'Access-Control-Allow-Methods, '+ 'Access-Control-Allow-Headers, '+'Cache-Control, '+'Content-Encoding, '+'Content-Range, '+'Content-Type, '+'Keep-Alive, '+'Location, '+'Vary, '+'X-Amz-Meta-Is-Final')
+    response.headers.add("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE, PATCH")
+    response.headers.add("Access-Control-Max-Age", "86400")
+    return response
+
+def _cors_response(data, status_code):
+    response = jsonify(data)
+    response.headers.add("Access-Control-Allow-Origin", "http://localhost:8000")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    response.headers.add("Content-Type", "application/json")
+    return response, status_code
+
 @app.route("/")
 def home():
     return {"message": "API fonctionnelle"}

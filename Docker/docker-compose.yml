@@ -3,7 +3,7 @@ services:
     build:
       context: ../
       dockerfile: Dockerfile
-    command: python -m src.Controller.store_manager --api  # <-- Ajoute cette ligne
+    command: python -m src.Controller.store_manager
     ports:
       - "8080:8080"
     volumes:
