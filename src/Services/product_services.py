@@ -3,8 +3,7 @@ from src.DAO.product_dao import get
 from src.Models.product import Product
 from data.database import session
 
-def search_product(command: str) -> str:
-    search_term = command[3:].strip()
+def search_product_service(search_term: str) -> str:
     # products = get(search_term)
     if search_term.isnumeric():
         search_id = int(search_term)

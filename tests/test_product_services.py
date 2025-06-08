@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from data.database import Base, Product
-from src.Services.product_services import search_product, stock_status
+from src.Services.product_services import search_product_service, stock_status
 from src.Views.console_view import format_products
 
 # Configuration d'une session de test isolée
@@ -38,22 +38,22 @@ def setup_database(monkeypatch):
 
 def test_search_product_by_id():
     """Recherche un produit par ID."""
-    result = search_product("sr 1")
+    result = search_product_service("sr 1")
     assert "Bananes" in result
 
 def test_search_product_by_name():
     """Recherche un produit par nom."""
-    result = search_product("sr Pommes")
+    result = search_product_service("sr Pommes")
     assert "Pommes" in result
 
 def test_search_product_by_category():
     """Recherche un produit par catégorie."""
-    result = search_product("sr Légumes")
+    result = search_product_service("sr Légumes")
     assert "Carottes" in result
 
 def test_search_product_not_found():
     """Recherche un produit inexistant."""
-    result = search_product("sr Chocolat")
+    result = search_product_service("sr Chocolat")
     assert result == "Aucun produit trouvé."
 
 def test_stock_status():
