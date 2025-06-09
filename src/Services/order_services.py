@@ -1,4 +1,5 @@
 #src/Services/order_services.py
+from sqlalchemy import func
 from data.database import session
 from src.Models.product import Product
 from src.Models.order import Order
@@ -6,18 +7,23 @@ from typing import List, Dict, Union
 from sqlalchemy.exc import SQLAlchemyError
 from src.DAO.order_dao import query
 
-def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, List]]:
+def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[str, int, List]]:
     try:
         # Validation initiale
         if not order_data or not isinstance(order_data.get('ids'), list):
             return {
                 "status": "error",
-                "message": "Format invalide. Utiliser {'ids': [1,2,3]}"
+                "message": "Format invalide. Utiliser {'ids': [1,2,3], 'store_id': 1}"
             }
 
         product_ids = order_data['ids']
+        store_id = order_data.get('store_id')
+        
         if not product_ids:
             return {"status": "error", "message": "Aucun produit spécifié"}
+            
+        if not store_id or not isinstance(store_id, int):
+            return {"status": "error", "message": "Store ID manquant ou invalide"}
 
         # Vérification des produits
         valid_products = []
@@ -32,10 +38,13 @@ def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, Li
 
             seen_errors = set()
             for pid, count in product_counts.items():
-                product = session.get(Product, pid)
+                product = session.query(Product).filter(
+                    Product.id == pid,
+                    Product.store_id == store_id
+                ).first()
 
                 if not product:
-                    msg = f"ID {pid} non trouvé"
+                    msg = f"ID {pid} non trouvé dans le magasin {store_id}"
                     if msg not in seen_errors:
                         errors.append(msg)
                         seen_errors.add(msg)
@@ -51,13 +60,13 @@ def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, Li
                 valid_products.extend([product] * count)
                 total += product.price * count
 
-
         if errors:
             return {
                 "status": "error",
                 "message": "Problèmes avec certains produits",
                 "errors": errors,
-                "valid_products": [p.id for p in valid_products]
+                "valid_products": [p.id for p in valid_products],
+                "store_id": store_id
             }
 
         # Enregistrement final
@@ -69,6 +78,7 @@ def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, Li
                 price=total,
                 products=products_str,
                 status="completed",
+                store_id=store_id
             )
             
             # Mise à jour du stock
@@ -84,14 +94,16 @@ def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, Li
                 "order_id": new_order.id,
                 "total": total,
                 "products": products_str,
-                "message": f"Commande #{new_order.id} enregistrée"
+                "store_id": store_id,
+                "message": f"Commande #{new_order.id} enregistrée pour le magasin {store_id}"
             }
             
         except SQLAlchemyError as e:
             session.rollback()
             return {
                 "status": "error",
-                "message": f"Erreur base de données: {str(e)}"
+                "message": f"Erreur base de données: {str(e)}",
+                "store_id": store_id
             }
             
     except Exception as e:
@@ -156,3 +168,104 @@ def orders_status() -> List[Dict]:
         
     except Exception as e:
         raise Exception(f"Erreur lors du formatage des commandes: {str(e)}")
+    
+def generate_orders_report() -> list:
+    try:
+        # Récupérer tous les magasins existants
+        all_stores = session.query(Product.store_id).distinct().all()
+        store_ids = [store[0] for store in all_stores] if all_stores else []
+
+        # 1. Ventes par magasin avec détails par statut
+        sales_by_store = []
+        for store_id in store_ids:
+            # Commandes complétées
+            completed_orders = session.query(
+                func.count(Order.id).label('count'),
+                func.sum(Order.price).label('revenue')
+            ).filter(
+                Order.store_id == store_id,
+                Order.status == 'completed'
+            ).first()
+
+            # Commandes annulées
+            cancelled_orders = session.query(
+                func.count(Order.id).label('count')
+            ).filter(
+                Order.store_id == store_id,
+                Order.status == 'cancelled'
+            ).first()
+
+            sales_by_store.append({
+                'store_id': store_id,
+                'total_orders': (completed_orders.count or 0) + (cancelled_orders.count or 0),
+                'completed_orders': completed_orders.count or 0,
+                'cancelled_orders': cancelled_orders.count or 0,
+                'total_revenue': float(completed_orders.revenue) if completed_orders.revenue else 0.0
+            })
+
+        # 2. Produits les plus vendus (uniquement commandes complétées)
+        completed_orders = session.query(Order).filter(Order.status == 'completed').all()
+        product_sales = {}
+        
+        for order in completed_orders:
+            if order.products:
+                products = order.products.split(',')
+                for product_id in products:
+                    if product_id.isdigit():
+                        product_id = int(product_id)
+                        product_sales[product_id] = product_sales.get(product_id, 0) + 1
+
+        top_products = sorted(product_sales.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        top_products_details = []
+        for product_id, quantity in top_products:
+            product = session.get(Product, product_id)
+            if product:
+                top_products_details.append({
+                    'product_id': product_id,
+                    'name': product.name,
+                    'category': product.category,
+                    'quantity_sold': quantity,
+                    'store_id': product.store_id
+                })
+
+        # 3. Stocks détaillés par produit et magasin
+        detailed_stock = []
+        for store_id in store_ids:
+            products_in_store = session.query(Product).filter(Product.store_id == store_id).all()
+            
+            products_detail = []
+            total_stock = 0
+            for product in products_in_store:
+                products_detail.append({
+                    'product_id': product.id,
+                    'name': product.name,
+                    'stock': product.stock_quantity,
+                    'category': product.category
+                })
+                total_stock += product.stock_quantity
+
+            detailed_stock.append({
+                'store_id': store_id,
+                'total_stock': total_stock,
+                'product_count': len(products_in_store),
+                'stock_status': 'OK' if total_stock > 10 else 'LOW',
+                'products_detail': products_detail
+            })
+
+        # Formatage final
+        report = {
+            'sales_by_store': sales_by_store,
+            'top_products': top_products_details,
+            'remaining_stock': detailed_stock,
+            'all_store_ids': store_ids  # Pour référence
+        }
+
+        return [report]
+    
+    except SQLAlchemyError as e:
+        print(f"Erreur SQL: {str(e)}")
+        return []
+    except Exception as e:
+        print(f"Erreur inattendue: {str(e)}")
+        return []

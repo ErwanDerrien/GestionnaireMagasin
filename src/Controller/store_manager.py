@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 from data.database import reset_database
 from src.Services.product_services import search_product_service, stock_status
-from src.Services.order_services import orders_status, save_order, return_order
+from src.Services.order_services import orders_status, save_order, return_order, generate_orders_report
 
 app = Flask(__name__)
 
@@ -108,6 +108,13 @@ def create_order_route():
                 "message": "Aucune donnée reçue"
             }, 400)
 
+        # Validation supplémentaire du store_id
+        if 'store_id' not in data:
+            return _cors_response({
+                "status": "error",
+                "message": "Le champ 'store_id' est obligatoire"
+            }, 400)
+
         result = save_order(data)
 
         if result.get("status") == "success":
@@ -117,27 +124,30 @@ def create_order_route():
                 "order": {
                     "id": result.get("order_id"),
                     "total": result.get("total"),
-                    "products": result.get("products")
+                    "products": result.get("products"),
+                    "store_id": result.get("store_id")
                 }
             }, 201)
 
         elif result.get("status") == "error":
             message = result.get("message", "Erreur lors de la commande")
             errors = result.get("errors", [])
+            store_id = result.get("store_id")
 
-            # Si le message indique un problème de stock
-            if "stock épuisé" in " ".join(errors).lower() or "stock" in message.lower():
-                return _cors_response({
-                    "status": "error",
-                    "message": message,
-                    "errors": errors
-                }, 409)  # 409 Conflict pour stock insuffisant
-
-            return _cors_response({
+            response = {
                 "status": "error",
                 "message": message,
-                "errors": errors
-            }, 400)
+                "errors": errors,
+                "store_id": store_id
+            }
+
+            # Gestion des codes d'erreur spécifiques
+            if any("stock insuffisant" in err.lower() for err in errors):
+                return _cors_response(response, 409)
+            elif any("non trouvé" in err.lower() for err in errors):
+                return _cors_response(response, 404)
+            else:
+                return _cors_response(response, 400)
 
         # Cas inattendu
         return _cors_response({
@@ -259,6 +269,62 @@ def reset_database_route():
             "action_required": "Contactez le support technique"
         }
         return jsonify(error_response), 500
+
+@app.route("/orders/report", methods=["GET"])
+def get_orders_report():
+    try:
+        report_data = generate_orders_report()
+        
+        if not report_data:
+            return _cors_response({
+                "status": "error",
+                "message": "Impossible de générer le rapport",
+                "suggestion": "Vérifiez les logs du serveur"
+            }, 500)
+            
+        report = report_data[0]
+        
+        # Calcul des résumés globaux
+        total_revenue = sum(store['total_revenue'] for store in report['sales_by_store'])
+        total_stock = sum(store['total_stock'] for store in report['remaining_stock'])
+        
+        # Formatage de la réponse
+        response = {
+            "status": "success",
+            "data": {
+                "stores_summary": {
+                    "count": len(report.get('all_store_ids', [])),
+                    "stores_with_orders": len([s for s in report['sales_by_store'] if s['total_orders'] > 0]),
+                    "total_revenue": total_revenue,
+                    "all_store_ids": report.get('all_store_ids', [])
+                },
+                "orders_summary": {
+                    "total_orders": sum(store['total_orders'] for store in report['sales_by_store']),
+                    "completed_orders": sum(store['completed_orders'] for store in report['sales_by_store']),
+                    "cancelled_orders": sum(store['cancelled_orders'] for store in report['sales_by_store'])
+                },
+                "stock_summary": {
+                    "total_remaining": total_stock,
+                    "low_stock_stores": [store for store in report['remaining_stock'] if store['stock_status'] == 'LOW']
+                },
+                "detailed_report": report
+            }
+        }
+        
+        return _cors_response(response, 200)
+        
+    except SQLAlchemyError as e:
+        return _cors_response({
+            "status": "error",
+            "message": "Database error",
+            "details": str(e)
+        }, 500)
+    except Exception as e:
+        return _cors_response({
+            "status": "error",
+            "message": "Unexpected error",
+            "details": str(e)
+        }, 500)
         
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)
