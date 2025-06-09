@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from data.database import reset_database
 from src.Services.product_services import restock_store_products, search_product_service, stock_status
 from src.Services.order_services import orders_status, save_order, return_order, generate_orders_report
+from src.Services.login_services import login
 
 app = Flask(__name__)
 
@@ -16,14 +17,20 @@ def login_route():
         data = request.get_json()
         if not data:
             return _cors_response({"status": "error", "message": "No data provided"}, 400)
-        
-        if data.get("username") == "manager" and data.get("password") == "test":
-            return _cors_response({"status": "manager"}, 200)
-        elif data.get("username") == "employee" and data.get("password") == "test":
-            return _cors_response({"status": "employee"}, 200)
+
+        username = data.get("username")
+        password = data.get("password")
+        store_id = data.get("store_id")
+
+        result = login(username, password, store_id)
+
+        if result.get("success"):
+            return _cors_response({"status": result["status"]}, 200)
         else:
-            return _cors_response({"status": "fail"}, 401)
-            
+            return _cors_response(
+                {"status": "error", "message": result["error"]}, result["status_code"]
+            )
+
     except Exception as e:
         return _cors_response({"status": "error", "message": str(e)}, 500)
 
@@ -68,7 +75,28 @@ def get_all_products_route():
             "message": f"Erreur lors de la récupération du stock: {str(e)}"
         }, 500)
 
-@app.route("/products/<search_term>", methods=["GET", "OPTIONS"])
+@app.route("/products/<int:store_id>", methods=["GET", "OPTIONS"])
+def get_all_products_of_store_route(store_id):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+        
+    try:
+        products_data = stock_status(store_id)
+        
+        return _cors_response({
+            "status": "success",
+            "data": products_data,
+            "count": len(products_data)
+        }, 200)
+        
+    except Exception as e:
+        return _cors_response({
+            "status": "error",
+            "message": f"Erreur lors de la récupération du stock: {str(e)}"
+        }, 500)
+
+
+@app.route("/products/<store_id>/<search_term>", methods=["GET", "OPTIONS"])
 def search_product_route(search_term):
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()

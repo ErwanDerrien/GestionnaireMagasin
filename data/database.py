@@ -21,15 +21,19 @@ def reset_database() -> bool:
         
         # Préparation des données initiales
         initial_products = [
-            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10, store_id=1),
-            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20, store_id=1),
-            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10, store_id=2),
-            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20, store_id=2),
-            Product(name='Troisieme prod', price=100, category='Catégorie B', stock_quantity=30, store_id=2),
-            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10, store_id=3),
-            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20, store_id=3),
-            Product(name='Troisieme prod', price=100, category='Catégorie B', stock_quantity=30, store_id=3),
-            Product(name='Quatrième prod', price=100, category='Catégorie B', stock_quantity=30, store_id=3),
+            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=1000, store_id=0),
+            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=1000, store_id=0),
+            Product(name='Troisieme prod', price=100, category='Catégorie B', stock_quantity=2000, store_id=0),
+            Product(name='Quatrième prod', price=100, category='Catégorie B', stock_quantity=2000, store_id=0),
+            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10, store_id=1, max_quantity=50),
+            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20, store_id=1, max_quantity=50),
+            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10, store_id=2, max_quantity=50),
+            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20, store_id=2, max_quantity=50),
+            Product(name='Troisieme prod', price=100, category='Catégorie B', stock_quantity=30, store_id=2, max_quantity=50),
+            Product(name='Product 1', price=100, category='Catégorie A', stock_quantity=10, store_id=3, max_quantity=50),
+            Product(name='Product 2', price=100, category='Catégorie A', stock_quantity=20, store_id=3, max_quantity=50),
+            Product(name='Troisieme prod', price=100, category='Catégorie B', stock_quantity=30, store_id=3, max_quantity=50),
+            Product(name='Quatrième prod', price=100, category='Catégorie B', stock_quantity=30, store_id=3, max_quantity=50),
         ]
         
         # Conversion des produits en string pour la commande
@@ -49,18 +53,67 @@ def reset_database() -> bool:
     finally:
         session.close()
         
+def apply_restock_logic(store_id: int) -> dict:
+    details = []
 
-def reset_store_products(store_id: int, products: list[Product]) -> bool:
     try:
-        session.query(Product).filter_by(store_id=store_id).delete()
-        session.add_all(products)
+        store_products = session.query(Product).filter_by(store_id=store_id).all()
+
+        for store_product in store_products:
+            product_name = store_product.name
+
+            # Rechercher le produit équivalent dans le stock central
+            central_product = session.query(Product).filter_by(
+                store_id=0,
+                name=store_product.name,
+                category=store_product.category,
+                price=store_product.price
+            ).with_for_update().first()  # verrouille pour éviter les conflits
+
+            if not central_product:
+                details.append({
+                    "product": product_name,
+                    "status": "introuvable dans le stock central"
+                })
+                continue
+
+            missing_quantity = store_product.max_quantity - store_product.stock_quantity
+            if missing_quantity <= 0:
+                details.append({
+                    "product": product_name,
+                    "status": "déjà plein"
+                })
+                continue
+
+            if central_product.stock_quantity <= 0:
+                details.append({
+                    "product": product_name,
+                    "status": "stock central vide"
+                })
+                continue
+
+            # Quantité à transférer
+            transfer_quantity = min(missing_quantity, central_product.stock_quantity)
+
+            # Mise à jour des quantités
+            store_product.stock_quantity += transfer_quantity
+            central_product.stock_quantity -= transfer_quantity
+
+            # Comme les objets sont liés à la session, ces changements seront pris en compte au commit
+            details.append({
+                "product": product_name,
+                "status": f"rempli de {transfer_quantity} unités"
+            })
+
         session.commit()
-        return True
+        return {
+            "success": True,
+            "details": details
+        }
 
     except Exception as e:
         session.rollback()
-        print(f"Erreur lors du reset des produits du magasin {store_id} : {str(e)}")
-        return False
-
-    finally:
-        session.close()
+        return {
+            "success": False,
+            "details": [f"Erreur BD : {str(e)}"]
+        }

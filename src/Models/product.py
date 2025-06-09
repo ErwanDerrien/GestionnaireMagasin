@@ -10,6 +10,7 @@ class Product(Base):
     category = Column(String)
     stock_quantity = Column(Integer)
     store_id = Column(Integer)
+    max_quantity = Column(Integer)
     
     def to_dict(self):
         return {
@@ -18,5 +19,6 @@ class Product(Base):
             'price': self.price,
             'category': self.category,
             'stock_quantity': self.stock_quantity,
-            'store_id': self.store_id
+            'store_id': self.store_id,
+            'max_quantity': self.max_quantity,
         }
