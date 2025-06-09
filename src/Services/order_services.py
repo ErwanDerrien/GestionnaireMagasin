@@ -3,7 +3,7 @@ from sqlalchemy import func
 from data.database import session
 from src.Models.product import Product
 from src.Models.order import Order
-from typing import List, Dict, Union
+from typing import List, Dict, Optional, Union
 from sqlalchemy.exc import SQLAlchemyError
 from src.DAO.order_dao import query
 
@@ -144,28 +144,34 @@ def return_order(order_id: int) -> str:
     except Exception as e:
         return f"Erreur: {str(e)}"
     
-def orders_status() -> List[Dict]:
+
+def orders_status(store_id: Optional[int] = None) -> List[Dict]:
     try:
-        all_orders = query(Order).order_by(Order.id).all()
-        
+        q = session.query(Order).order_by(Order.id)
+
+        if store_id is not None:
+            q = q.filter(Order.store_id == store_id)
+
+        all_orders = q.all()
+
         if not all_orders:
             return []
-        
+
         formatted_orders = []
         for order in all_orders:
-            # Convertit la string "1,2,3" en [1, 2, 3]
             products_list = [int(pid) for pid in order.products.split(',') if pid.isdigit()]
-            
+
             formatted_orders.append({
                 "id": order.id,
                 "user_id": order.user_id,
                 "status": order.status,
                 "products": products_list,
-                "total_price": float(order.price) if order.price else 0.0
+                "total_price": float(order.price) if order.price else 0.0,
+                "store_id": order.store_id
             })
-        
+
         return formatted_orders
-        
+
     except Exception as e:
         raise Exception(f"Erreur lors du formatage des commandes: {str(e)}")
     

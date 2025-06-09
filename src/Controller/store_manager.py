@@ -239,6 +239,33 @@ def get_all_orders_status():
             "status": "error",
             "message": f"Erreur lors de la récupération: {str(e)}"
         }, 500)
+
+@app.route("/orders/<int:store_id>", methods=["GET"])
+def get_store_orders(store_id):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
+    try:
+        orders_data = orders_status(store_id=store_id)
+
+        if not orders_data:
+            return _cors_response({
+                "status": "success",
+                "message": f"Aucune commande trouvée pour le magasin {store_id}",
+                "data": []
+            }, 200)
+
+        return _cors_response({
+            "status": "success",
+            "data": orders_data,
+            "count": len(orders_data)
+        }, 200)
+
+    except Exception as e:
+        return _cors_response({
+            "status": "error",
+            "message": f"Erreur lors de la récupération des commandes du magasin {store_id}: {str(e)}"
+        }, 500)
     
 @app.route("/reset", methods=["POST", "OPTIONS"])
 def reset_database_route():
