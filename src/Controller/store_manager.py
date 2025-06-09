@@ -178,7 +178,6 @@ def return_order_route(order_id):
             "message": f"Erreur serveur: {str(e)}"
         }, 500)
 
-    
 @app.route("/orders", methods=["GET"])
 def get_all_orders_status():
     try:
@@ -206,31 +205,60 @@ def get_all_orders_status():
 @app.route("/reset", methods=["POST", "OPTIONS"])
 def reset_database_route():
     try:
-        if reset_database():
-            return jsonify({
+        if request.method == "OPTIONS":
+            return jsonify({"status": "success"}), 200
+            
+        success = reset_database()
+        
+        if success:
+            response = {
                 "status": "success",
-                "message": "Base de données réinitialisée",
-                "data": {
-                    "tables_recréées": True,
-                    "données_initiales_insérées": True
+                "message": "La base de données a été réinitialisée avec succès",
+                "details": {
+                    "actions": [
+                        "Tables supprimées et recréées",
+                        "Données initiales insérées",
+                        "Exemple de commande ajoutée"
+                    ],
+                    "counts": {
+                        "produits_ajoutés": 9,
+                        "commandes_ajoutées": 1
+                    }
                 }
-            }), 200
+            }
+            return jsonify(response), 200
         else:
-            return jsonify({
+            response = {
                 "status": "error",
-                "message": "Échec de la réinitialisation"
-            }), 500
+                "message": "La réinitialisation de la base de données a échoué",
+                "suggestion": "Vérifiez les logs du serveur pour plus de détails",
+                "possible_causes": [
+                    "Problème de connexion à la base de données",
+                    "Erreur de validation des données",
+                    "Problème de permissions"
+                ]
+            }
+            return jsonify(response), 500
             
     except SQLAlchemyError as e:
-        return jsonify({
+        error_response = {
             "status": "error",
-            "message": f"Erreur SQLAlchemy: {str(e)}"
-        }), 500
+            "message": "Erreur de base de données",
+            "technical_details": str(e),
+            "type": "database_error",
+            "action_required": "Contactez l'administrateur système"
+        }
+        return jsonify(error_response), 500
+        
     except Exception as e:
-        return jsonify({
+        error_response = {
             "status": "error",
-            "message": f"Erreur inattendue: {str(e)}"
-        }), 500
+            "message": "Erreur inattendue",
+            "technical_details": str(e),
+            "type": "unexpected_error",
+            "action_required": "Contactez le support technique"
+        }
+        return jsonify(error_response), 500
         
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)

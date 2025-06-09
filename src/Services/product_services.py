@@ -31,6 +31,7 @@ def stock_status():
         'name': p.name,
         'category': p.category,
         'price': p.price,
-        'stock_quantity': p.stock_quantity
+        'stock_quantity': p.stock_quantity,
+        'store_id': p.store_id
     } for p in all_products] if all_products else []
 

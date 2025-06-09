@@ -6,16 +6,17 @@ class Product(Base):
     
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    price = Column(Integer)  # Note: Vous utilisez Integer pour le prix
+    price = Column(Integer)
     category = Column(String)
     stock_quantity = Column(Integer)
+    store_id = Column(Integer)
     
     def to_dict(self):
-        """Convertit l'objet Product en dictionnaire sérialisable"""
         return {
             'id': self.id,
             'name': self.name,
-            'price': self.price,  # Pas besoin de conversion si c'est déjà un Integer
+            'price': self.price,
             'category': self.category,
-            'stock_quantity': self.stock_quantity
+            'stock_quantity': self.stock_quantity,
+            'store_id': self.store_id
         }
