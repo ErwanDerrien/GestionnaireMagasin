@@ -96,74 +96,112 @@ def search_product_route(search_term):
 
 @app.route("/orders", methods=["POST", "OPTIONS"])
 def create_order_route():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
     try:
         data = request.get_json()
-        
+
         if not data:
-            return jsonify({"status": "error", "message": "No data provided"}), 400
-        
-        order = save_order(data)
-        
-        return jsonify({
-            "status": "success",
-            "message": "Order created successfully",
-            "order": order
-        }), 201
-    
-    except Exception as e:
-        return jsonify({
+            return _cors_response({
+                "status": "error",
+                "message": "Aucune donnée reçue"
+            }, 400)
+
+        result = save_order(data)
+
+        if result.get("status") == "success":
+            return _cors_response({
+                "status": "success",
+                "message": result.get("message", "Commande enregistrée"),
+                "order": {
+                    "id": result.get("order_id"),
+                    "total": result.get("total"),
+                    "products": result.get("products")
+                }
+            }, 201)
+
+        elif result.get("status") == "error":
+            message = result.get("message", "Erreur lors de la commande")
+            errors = result.get("errors", [])
+
+            # Si le message indique un problème de stock
+            if "stock épuisé" in " ".join(errors).lower() or "stock" in message.lower():
+                return _cors_response({
+                    "status": "error",
+                    "message": message,
+                    "errors": errors
+                }, 409)  # 409 Conflict pour stock insuffisant
+
+            return _cors_response({
+                "status": "error",
+                "message": message,
+                "errors": errors
+            }, 400)
+
+        # Cas inattendu
+        return _cors_response({
             "status": "error",
-            "message": str(e)
-        }), 500
+            "message": "Réponse du service inattendue"
+        }, 500)
+
+    except Exception as e:
+        return _cors_response({
+            "status": "error",
+            "message": f"Erreur serveur: {str(e)}"
+        }, 500)
     
 @app.route("/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
 def return_order_route(order_id):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
     try:
-        # Appel à votre service existant
         result = return_order(order_id)
-        
+
         if "erreur" in result.lower() or "non trouvée" in result.lower():
             status_code = 404 if "non trouvée" in result.lower() else 400
-            return jsonify({
+            return _cors_response({
                 "status": "error",
                 "message": result
-            }), status_code
-            
-        return jsonify({
+            }, status_code)
+
+        return _cors_response({
             "status": "success",
             "message": result,
             "order_id": order_id
-        }), 200
-    
+        }, 200)
+
     except Exception as e:
-        return jsonify({
+        return _cors_response({
             "status": "error",
             "message": f"Erreur serveur: {str(e)}"
-        }), 500
+        }, 500)
+
     
 @app.route("/orders", methods=["GET"])
 def get_all_orders_status():
     try:
         orders_data = orders_status()
-        
+
         if not orders_data:
-            return jsonify({
+            return _cors_response({
                 "status": "success",
                 "message": "Aucune commande trouvée",
                 "data": []
-            }), 200
-            
-        return jsonify({
+            }, 200)
+
+        return _cors_response({
             "status": "success",
             "data": orders_data,
             "count": len(orders_data)
-        }), 200
-        
+        }, 200)
+
     except Exception as e:
-        return jsonify({
+        return _cors_response({
             "status": "error",
             "message": f"Erreur lors de la récupération: {str(e)}"
-        }), 500
+        }, 500)
     
 @app.route("/reset", methods=["POST", "OPTIONS"])
 def reset_database_route():

@@ -28,16 +28,33 @@ def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, Li
         total = 0
         errors = []
 
-        with session.begin_nested():  # Transaction temporaire
+        # Transaction temporaire
+        with session.begin_nested():  
+            product_counts = {}
             for pid in product_ids:
+                product_counts[pid] = product_counts.get(pid, 0) + 1
+
+            seen_errors = set()
+            for pid, count in product_counts.items():
                 product = session.get(Product, pid)
+
                 if not product:
-                    errors.append(f"ID {pid} non trouvé")
-                elif product.stock_quantity < 1:
-                    errors.append(f"Stock épuisé: {product.name}")
-                else:
-                    valid_products.append(product)
-                    total += product.price
+                    msg = f"ID {pid} non trouvé"
+                    if msg not in seen_errors:
+                        errors.append(msg)
+                        seen_errors.add(msg)
+                    continue
+
+                if product.stock_quantity < count:
+                    msg = f"Stock insuffisant pour: {product.name} (demande: {count}, disponible: {product.stock_quantity})"
+                    if msg not in seen_errors:
+                        errors.append(msg)
+                        seen_errors.add(msg)
+                    continue
+
+                valid_products.extend([product] * count)
+                total += product.price * count
+
 
         if errors:
             return {
