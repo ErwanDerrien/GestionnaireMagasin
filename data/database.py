@@ -48,3 +48,19 @@ def reset_database() -> bool:
         return False
     finally:
         session.close()
+        
+
+def reset_store_products(store_id: int, products: list[Product]) -> bool:
+    try:
+        session.query(Product).filter_by(store_id=store_id).delete()
+        session.add_all(products)
+        session.commit()
+        return True
+
+    except Exception as e:
+        session.rollback()
+        print(f"Erreur lors du reset des produits du magasin {store_id} : {str(e)}")
+        return False
+
+    finally:
+        session.close()

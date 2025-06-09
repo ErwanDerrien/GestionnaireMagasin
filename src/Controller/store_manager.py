@@ -2,7 +2,7 @@
 from flask import Flask, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 from data.database import reset_database
-from src.Services.product_services import search_product_service, stock_status
+from src.Services.product_services import restock_store_products, search_product_service, stock_status
 from src.Services.order_services import orders_status, save_order, return_order, generate_orders_report
 
 app = Flask(__name__)
@@ -324,6 +324,32 @@ def get_orders_report():
             "status": "error",
             "message": "Unexpected error",
             "details": str(e)
+        }, 500)
+     
+@app.route("/products/store/<int:store_id>/restock", methods=["PUT", "OPTIONS"])
+def restock_store_route(store_id):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
+    try:
+        success = restock_store_products(store_id)
+
+        if not success:
+            return _cors_response({
+                "status": "error",
+                "message": f"Le restock du magasin {store_id} a échoué."
+            }, 400)
+
+        return _cors_response({
+            "status": "success",
+            "message": f"Le magasin {store_id} a été restocké avec succès.",
+            "store_id": store_id
+        }, 200)
+
+    except Exception as e:
+        return _cors_response({
+            "status": "error",
+            "message": f"Erreur serveur: {str(e)}"
         }, 500)
         
 if __name__ == '__main__':
