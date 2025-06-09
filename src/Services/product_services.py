@@ -1,19 +1,18 @@
 # src/Services/product_services.py
-from src.DAO.product_dao import get
 from src.Models.product import Product
-from data.database import session
+from src.DAO.product_dao import query
 
 def search_product_service(search_term: str) -> list:
     try:
         if search_term.isnumeric():
             search_id = int(search_term)
-            products = session.query(Product).filter(
+            products = query(Product).filter(
                 (Product.id == search_id) |
                 (Product.name.contains(search_term)) |
                 (Product.category.contains(search_term))
             ).all()
         else:
-            products = session.query(Product).filter(
+            products = query(Product).filter(
                 (Product.name.contains(search_term)) |
                 (Product.category.contains(search_term))
             ).all()
@@ -25,7 +24,7 @@ def search_product_service(search_term: str) -> list:
         return []
 
 def stock_status():
-    all_products = session.query(Product).order_by(Product.id).all()
+    all_products = query(Product).order_by(Product.id).all()
     
     return [{
         'id': p.id,

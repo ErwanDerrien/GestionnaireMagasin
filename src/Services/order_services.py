@@ -1,14 +1,10 @@
 #src/Services/order_services.py
-import datetime
 from data.database import session
 from src.Models.product import Product
 from src.Models.order import Order
-from src.Views.console_view import format_orders
 from typing import List, Dict, Union
-
-from typing import List, Dict, Union
-from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
+from src.DAO.order_dao import query
 
 def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, List]]:
     try:
@@ -107,7 +103,7 @@ def save_order(order_data: Dict[str, List[int]]) -> Dict[str, Union[str, int, Li
 def return_order(order_id: int) -> str:
     try:        
         # Vérifier la commande avant transaction
-        order = session.query(Order).get(order_id)
+        order = query(Order).get(order_id)
         if not order:
             return f"Commande ID {order_id} non trouvée"
         
@@ -118,7 +114,7 @@ def return_order(order_id: int) -> str:
         try:
             product_ids = order.products.split(',')
             for pid in product_ids:
-                product = session.query(Product).get(int(pid))
+                product = query(Product).get(int(pid))
                 if product:
                     product.stock_quantity += 1
             
@@ -138,7 +134,7 @@ def return_order(order_id: int) -> str:
     
 def orders_status() -> List[Dict]:
     try:
-        all_orders = session.query(Order).order_by(Order.id).all()
+        all_orders = query(Order).order_by(Order.id).all()
         
         if not all_orders:
             return []
