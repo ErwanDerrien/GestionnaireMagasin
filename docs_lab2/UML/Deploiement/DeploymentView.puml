@@ -11,9 +11,11 @@ artifact Ordinateur as or
 
 artifact Serveur {
     artifact "Docker Container " {
-        artifact API as api
-        artifact Controller as co
-        artifact Services as se
+        artifact "Serveur Flask" {
+            artifact API as api
+            artifact Controller as co
+            artifact Services as se
+        }
         database Database as db
     }
 }

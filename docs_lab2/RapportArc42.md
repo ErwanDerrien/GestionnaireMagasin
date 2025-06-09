@@ -22,12 +22,12 @@ Les objectifs clés incluent :
 - UC2 – Consulter le stock central et déeclencher un réapprovisionnement
 - UC3 – Visualiser les performances des magasins dans un tableau de bord
 
-### Should
+### Should (Ne sont pas implémentés)
 
 - UC4 – Mettre à jour les produits depuis la maison mère
 - UC6 – Approvisionner un magasin depuis le centre logistique
 
-### Could
+### Could (Ne sont pas implémentés)
 
 - UC7 – Alerter automatiquement la maison mère en cas de rupture critique
 - UC8 – Offrir une interface web minimale pour les gestionnaires
@@ -43,7 +43,7 @@ Les objectifs clés incluent :
 
 2. **Évolutivité** :
 
-   - Ajout d'un magasin en <1 jour ouvré
+   - Ajout d'un magasin en <1 heure
    - Support pour extensions futures
 
 3. **Transférabilité** :
@@ -89,21 +89,22 @@ Les objectifs clés incluent :
 
 **Partenaires Métier**:
 
-| Acteur              | Interactions                    | Format/Protocole         |
-| ------------------- | ------------------------------- | ------------------------ |
-| Magasins (5)        | Mise à jour des stocks          | API REST (JSON)          |
-| Centre Logistique   | Demandes de réapprovisionnement | Messagerie (RabbitMQ)    |
-| Siège Social        | Consultation des rapports       | Web (HTTPS/JSON)         |
-| Employés de magasin | Saisie des ventes               | Interface graphique Java |
+| Acteur              | Interactions                    |
+| ------------------- | ------------------------------- |
+| Employés de magasin | Demandes de réapprovisionnement |
+| Employés de magasin | Saisie des ventes               |
+| Employés de magasin | Recherch de produits            |
+| Siège Social        | Consultation des rapports       |
 
+Format/Protocole : Interface graphique web
 ![Contexte métier](/out/docs_lab2/UML/ContexteMétier/ContexteMétier.png)
 
 ## 3.2 Contexte Technique
 
 **Stock**:
 
-- Synchronisation via WebSockets
-- Base de données MySQL centrale
+- Synchronisation via API Rest
+- Base de données SQLite centrale
 
 **Contraintes d'Intégration**:
 
@@ -116,7 +117,7 @@ Les objectifs clés incluent :
 
 ## Décisions Fondamentales
 
-**1. Architecture MVC + Services + DAO**
+**1. Architecture Controller + Services + DAO**
 
 - _Pourquoi_ : Découple les différents éléments du système pour les rendre indépendents des un des autres et donc facile à refactorer
 - _Implémentation_ :
@@ -144,12 +145,12 @@ Les objectifs clés incluent :
 
 - **Backend** :
 
-  - Python
-  - Base de données : MySQL
+  - Python, API sur serveur Flask
+  - Base de données : SQLite
 
 - **Frontend** :
 
-  - Vue.js (découplée)
+  - LitElements (découplée)
 
 - **DevOps** :
   - CI/CD : GitLab Pipelines
@@ -162,50 +163,49 @@ Les objectifs clés incluent :
 
 **Composants principaux** :
 
-| Bloc                  | Responsabilités                            | Interfaces              |
-| --------------------- | ------------------------------------------ | ----------------------- |
-| Gestion des Stocks    | Gestion centralisée des stocks             | API REST, WebSockets    |
-| Génération Rapports   | Production des rapports consolidés         | API REST                |
-| Interface Utilisateur | Point d'accès unique pour tous les acteurs | GraphQL, JavaFX, Vue.js |
+| Bloc            | Responsabilités                       | Interfaces       |
+| --------------- | ------------------------------------- | ---------------- |
+| Site Web        | Point d'accès, Communiquer avec l'API | javascript fetch |
+| Serveur Flask   | Gestion de la logique sytème          | API REST         |
+| Base de données | Persistence des donnés                | SQLite           |
 
 **Relations** :
 
-- Tous les composants accèdent à la base MySQL centrale
-- L'interface orchestre les interactions utilisateur
+- Tout communication externe au Docker est gérée par le serveur Flask avant d'accéder à la base de données
+- L'interface orchestre les interactions utilisateur et la communication au serveur
 
-## 5.2 Vue Niveau 2 (Détail Gestion des Stocks)
+## 5.2 Vue Niveau 2 (Détail Docker container)
 
 ![Diagramme Niveau 2](/out/docs_lab2/UML/BlockViewLevel2/Niveau2.png)
 
 **Structure interne** :
 
-1. **Service Stock** :
+1. **Serveur Flask** :
 
-   - Expose la logique métier (`checkStock`, `updateInventory`)
-   - Implémente les règles de gestion
+   - Expose la logique métier (Rerche de produits, Gestion de commandes)
    - Contrôle les transactions
+   - API sur le port 8080
 
-2. **DAO MySQL** :
+2. **Base de données SQLite et ORM** :
    - Abstraction de l'accès aux données
-   - Implémente le pattern Repository
    - Gère le mapping objet-relationnel
 
 **Principe clé** :  
-Séparation stricte entre logique métier (Service) et persistance (DAO) via l'injection de dépendances.
+Séparation stricte entre logique métier (Service) et persistance (ORM).
 
 # 6. Vue de runtime
 
-## UC1 – Générer un rapport consolidée des ventes
+## UC1 et UC3 - Génération et visualistion de rapport
 
-![UC1](/out/docs_lab2/UML/RuntimeViewUC1/UC1%20-%20Génération%20et%20consultation%20de%20rapport.png)
+![UC1](/out/docs_lab2/UML/RuntimeViewUC1/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
 
 ## UC2 – Consulter le stock central et déclencher un réapprovisionnement
 
 ![UC2](/out/docs_lab2/UML/RuntimeViewUC2/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
 
-## UC3 – Visualiser les performances des magasins dans un tableau de bord
+## Sauvegarder une commande
 
-![UC2](/out/docs_lab2/UML/RuntimeViewUC3/UC3%20-%20Visualiser%20les%20performances%20des%20magasins%20dans%20un%20tableau%20de%20bord.png)
+![SaveOrder](/out/docs_lab2/UML/RuntimeViewSaveOrder/Sauvegarder%20une%20commande.png)
 
 # 7. Vue de déploiement
 
@@ -213,16 +213,17 @@ Séparation stricte entre logique métier (Service) et persistance (DAO) via l'i
 
 ### Node
 
-| Node             | Description                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| Caisse           | Poste utilisé par le caissier pour interagir avec le système via l’interface Web.                     |
-| Ordinateur       | Utilisé par les gestionnaires et dirigeants pour accéder aux fonctions de gestion et de consultation. |
-| Site Web         | Interface Web client accessible via HTTPS. Sert de point d’entrée principal.                          |
-| Serveur (Docker) | Conteneur Docker déployé sur un serveur distant. Héberge les composants de backend.                   |
-| API              | Fournit une interface REST entre le site Web et la logique métier.                                    |
-| Contrôleur       | Gère la logique de traitement des requêtes.                                                           |
-| Services         | Contient la logique métier, appelle la base de données via un ORM.                                    |
-| Base de données  | Persistance des données métier du système.                                                            |
+| Node            | Description                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| Caisse          | Poste utilisé par le caissier pour interagir avec le système via l’interface Web.                     |
+| Ordinateur      | Utilisé par les gestionnaires et dirigeants pour accéder aux fonctions de gestion et de consultation. |
+| Site Web        | Interface Web client accessible via HTTPS. Sert de point d’entrée principal.                          |
+| Docker          | Conteneur Docker déployé sur un serveur distant. Héberge les composants de backend.                   |
+| Serveur Flask   | Roule à partir du Docker container. Fournit une API au backend.                                       |
+| API             | Fournit une interface REST entre le site Web et la logique métier.                                    |
+| Contrôleur      | Gère la logique de traitement des requêtes.                                                           |
+| Services        | Contient la logique métier, appelle la base de données via un ORM.                                    |
+| Base de données | Persistance des données métier du système.                                                            |
 
 Les terminaux clients (caisses et ordinateurs) communiquent avec le site web via HTTPS. Le site Web appelle ensuite l’API REST exposée par le backend.
 
@@ -243,7 +244,7 @@ Le système applique une séparation stricte des rôles (caissier, gestionnaire,
 
 Toutes les interactions entre le site Web et le backend utilisent des API REST. Les conventions suivantes sont respectées :
 
-- URLs structurées par ressource (ex. `/api/produits`)
+- URLs structurées par ressource (ex. `/products`, `/orders/report`)
 - Utilisation cohérente des méthodes HTTP (GET, POST, PUT, DELETE)
 - Réponses en JSON, avec codes d’état HTTP standardisés pour indiquer les succès et les erreurs.
 
@@ -261,9 +262,46 @@ Le backend est entièrement déployé dans un conteneur Docker, ce qui permet un
 
 # 9. Décision d'architecture
 
-## ADR 1
+## ADR 1 Choix de Flask pour l'API
 
-## ADR 2
+### Statut  
+Implémenté
+
+### Contexte  
+Lors du laboratoire 1, la communication entre l'interface utilisateur et la base de données était limitée et directe, avec peu de logique métier côté serveur. Avec l'évolution vers le laboratoire 2, le système doit gérer davantage de règles métier, de validations et d’interactions complexes entre les entités (commandes, produits, magasins, utilisateurs).  
+Il fallait un moyen simple, flexible et rapide à mettre en œuvre pour exposer ces fonctionnalités sous forme d’API REST, tout en gardant la maintenance facile et la possibilité d’évolution.
+
+### Décision  
+Nous avons décidé d’utiliser Flask comme framework backend pour l’API. Flask est léger, simple à prendre en main, compatible avec SQLAlchemy (notre ORM), et permet de construire des routes REST rapidement et efficacement.  
+Cela nous offre un contrôle granulaire sur les requêtes, les réponses, la gestion des erreurs et la sécurité, tout en gardant la possibilité d’étendre ou d’ajouter des fonctionnalités facilement.
+
+### Conséquences  
+- L’API est découplée de la couche frontend, facilitant les développements parallèles et la maintenance.  
+- Le backend peut évoluer indépendamment, par exemple en ajoutant des authentifications, middlewares, ou en intégrant d’autres services.  
+- Flask, grâce à sa simplicité, réduit la complexité de mise en place initiale, ce qui accélère le développement.  
+- Le choix impose de gérer manuellement certains aspects (gestion des erreurs, sécurité) mais offre aussi plus de flexibilité.  
+- Le projet nécessite un serveur dédié pour héberger cette API, ce qui est pris en compte dans le déploiement via Docker.
+
+## ADR 2 Choix de SQLite pour la persistance des données
+
+### Statut  
+Implémenté
+
+### Contexte  
+Pour le laboratoire 1, il fallait une solution simple et légère pour stocker les données localement pendant le développement initial. Les exigences n’étaient pas encore très complexes et le système devait rester facile à configurer et à déployer.  
+Une base de données relationnelle intégrée, sans serveur à gérer, était idéale pour ce contexte.
+
+### Décision  
+Nous avons choisi d’utiliser SQLite comme solution de persistance. SQLite est une base de données relationnelle embarquée, qui stocke les données dans un simple fichier local.  
+Ce choix facilite le déploiement, évite la complexité d’un serveur de base de données et offre un bon support SQL pour les besoins actuels.
+
+### Conséquences  
+- Le système est facile à configurer et à démarrer, notamment pour les tests et le développement local.  
+- La gestion des données reste performante tant que la charge est modérée et les données de taille raisonnable.  
+- Ce choix limite la scalabilité et la gestion de connexions concurrentes par rapport à un serveur SQL dédié (ex : MySQL, PostgreSQL).  
+- Lors du passage à un contexte plus complexe (lab 2), un changement vers une base plus robuste pourra être envisagé.  
+- Le fichier de base de données peut être facilement sauvegardé, copié ou déplacé.
+
 
 # 10. Exigences de qualité
 
@@ -282,7 +320,7 @@ Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les tro
 
 - **Évolutivité**
 
-  - Intégration d’un nouveau magasin en moins d’un jour ouvré
+  - Intégration d’un nouveau magasin en moins d’une heure
   - Support anticipé pour nouvelles fonctionnalités
 
 - **Transférabilité**

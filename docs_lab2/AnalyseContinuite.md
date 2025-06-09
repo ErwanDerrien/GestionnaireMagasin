@@ -11,13 +11,21 @@ Je veux conserver la séparation actuelle du traitement de l'info (MVC + service
 ### Modifier
 
 Je veux modifier la structure dont l'information est sauvegardée sur la base de donnée pour permettre l'expension du scope.
-Je veux changer la manière dont la base de donnée est accédée. Actuellement, la BD est 
+Je veux changer la manière dont la base de donnée est accédée. Actuellement l'interaction avec les services se fait à partir du terminal, je veux modifier ça pour que ce soit à partir d'une api reste que on peut accéder aux données.
 
 ### Refactorer
 
-Je veux changer l'inerface pour permettre à un nouvel utilisateur de : 
+Je veux changer l'inerface pour permettre à un nouvel utilisateur de :
+
 - Démarrer l'application
-- Choisir un magasin ou la maison mère
+- Se connecter
+- En tant qu'employé
+  - Rechercher des produits
+  - Enregistrer des commandes
+  - Réapprovisionner son magasin
+- En tant que gestionnaire
+  - Consulter les statistiques
+  - Voir toutes les informations de tous les magasins
 
 ## Nouveau/elles
 
@@ -27,35 +35,46 @@ Je veux changer l'inerface pour permettre à un nouvel utilisateur de :
 - Les employés qui vont utiliser le programme ne peuvent que utiliser la caisse, ils n'ont pas accès
 - Les administrateurs peuvent utiliser le programme soit pour se connecter à un des trois magasins, et a aussi les accès pour démarrer l'interface de la maison mère
 
-
 ### Défis architecturaux
 
 - L'architecture des données sauvegardées dans la base de donnée doit être accomodante avec les différents magasins
 
-# Réplexion basée sur les principes du Domain-Driven Design
+# Réflexion basée sur les principes du Domain-Driven Design
 
+1. **Gestion des produits**
 
-## Sous-domaines fonctionnels
+   - **Responsabilité** : Gestion du stock, recherche de produits, réapprovisionnement
+   - **Concepts clés** :
+     - Entités : `Product`
+     - Services : `restock_store_products`, `search_product_service`, `stock_status`
+   - **Langage ubiquitaire** : "Produit", "Stock", "Réapprovisionnement", "Magasin"
 
-1. Ventes en magasin
-- Responsabilité : Commandes locales, gestion du stock en temps réel
-- Concepts clés : 
-- - Entités: `Product`, `Order`
-- - Événements : `OrderSubmitted`, `CancelOrder`
-- Language ubiquitaire : "Produit", "Commande", "Succursale"
+2. **Gestion des commandes et ventes**
 
-2. Gestion logistique
-- Responsabilité : Réapprovisionner les stocks des magasins
-- Concepts clés : 
-- - Agrégats: `RestockDemand`, `GlobalStock`
-- - Événements : `ReplenishStoreStock`
-- - Services : `RestockService`
-- Language ubiquitaire : "Seuil critique", "Transfert de stock"
+   - **Responsabilité** : Enregistrement, suivi, annulation des commandes
+   - **Concepts clés** :
+     - Entités : `Order`
+     - Services : `save_order`, `return_order`, `orders_status`
+     - Événements : `OrderSubmitted`, `OrderCancelled`
+   - **Langage ubiquitaire** : "Commande", "Vente", "Statut", "Magasin"
 
-3. Supervision par la maison mère
-- Responsabilité : Réapprovisionner les stocks des magasins
-- Concepts clés : 
-- - Agrégats: `RestockDemand`, `GlobalStock`
-- - Événements : `ReplenishStoreStock`
-- - Services : `RestockService`
-- Language ubiquitaire : "Seuil critique", "Transfert de stock"
+3. **Authentification et sécurité**
+
+   - **Responsabilité** : Gestion des accès, connexion utilisateur
+   - **Concepts clés** :
+     - Services : `login`
+   - **Langage ubiquitaire** : "Utilisateur", "Session", "Authentification"
+
+4. **Supervision et rapports**
+
+   - **Responsabilité** : Génération des rapports d’activité, suivi global
+   - **Concepts clés** :
+     - Services : `generate_orders_report`
+   - **Langage ubiquitaire** : "Rapport", "Revenu", "Stock restant", "Commande"
+
+5. **Gestion de la persistance**
+
+   - **Responsabilité** : Réinitialisation et gestion de la base de données
+   - **Concepts clés** :
+     - Services : `reset_database`
+   - **Langage ubiquitaire** : "Base de données", "Migration", "Initialisation"

@@ -1,0 +1,32 @@
+@startuml Sauvegarder une commande
+
+actor Employé as ge
+participant Interface as in
+participant API as api
+participant Controller as co
+participant Service as se
+database SQLite as db
+
+ge -> in : "Sauvegarder une commande"
+in -> api : POST /orders
+api -> co : create_order_route() : body a store_id et products
+co -> se : save_order(products, store_id)
+
+activate se
+se -> db : Vérifie produits et stock
+alt Données invalides
+    se --> co : Retourne erreur de validation
+else Produits indisponibles
+    se --> co : Retourne erreurs de stock
+else Succès
+    se -> db : Crée commande
+    se -> db : Met à jour stock
+    se --> co : Retourne succès avec détails commande
+end
+deactivate se
+
+co --> api : Réponse HTTP
+api --> in : Affiche résultat
+in --> ge : Notification succès/échec
+
+@enduml

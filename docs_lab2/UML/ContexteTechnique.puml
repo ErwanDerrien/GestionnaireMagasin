@@ -1,5 +1,7 @@
 @startuml ContexteTechnique
 
+left to right direction
+
 skinparam {
     BackgroundColor #F9F9F9
     ArrowColor #333333
@@ -10,42 +12,39 @@ skinparam {
     InterfaceBorderColor #1E90FF
 }
 
-rectangle "Système Central" as sc {
-    component "Gestion des Stocks" as stocks #FFD700
-    component "Génération de rapports" as rapports #9370DB
-    database "MySQL" as db #228B22
-}
+storage "Stock dans les enrepôts" as se
 
-cloud {
-    component "CI/CD Lab 1" as cicd #FF6347
-    component "Docker Container" as docker #2496ED
+rectangle "Serveur physique" as sp {
+    rectangle "Serveur Flask (Roule à partir d'un Dockerfile)" as sc {
+        database "MySQL" as db #228B22
+        rectangle Services {
+            component "Gestion de l'authentification" as login #4FD880
+            component "Gestion des produits" as products #FFD700
+            component "Gestion des commandes" as orders #F55700
+            component "Gestion des rapport" as reports #F56660
+        }
+    }
+    sp -- sc : "Hosté sur le port :8080"
 }
 
 rectangle "Caisse 1" as c1
 rectangle "Caisse 2" as c2
 rectangle "Caisse 3" as c3
 
-stocks --> db : "Persistance\nprincipale"
-rapports --> db : "Persistance\nprincipale"
-
-cicd ...> sc : "Déploiement"
-docker ...> sc : "Conteneurisation"
-
-
 cloud {
+    component "CI/CD Lab 1" as cicd #FF6347
     artifact "Site Web" as sw
 }
 
-sw - docker
+db -> Services : "Persistance\nprincipale"
+cicd ...> sc : "Vérification"
 
-sw ---- c1
-sw ---- c2 : "API Rest"
-sw ---- c3
+se -- db : Représentation digitale/physique
 
-note left of docker
-    Contraintes d'intégration:
-    - Doit coexister avec le CI/CD existant
-    - Doit fonctionner en container Docker
-end note
+sw - sp : API
+sc -- Services
+sw -- c1
+sw -- c2 : "API Rest"
+sw -- c3
 
 @enduml

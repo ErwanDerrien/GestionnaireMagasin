@@ -144,7 +144,6 @@ def return_order(order_id: int) -> str:
     except Exception as e:
         return f"Erreur: {str(e)}"
     
-
 def orders_status(store_id: Optional[int] = None) -> List[Dict]:
     try:
         q = session.query(Order).order_by(Order.id)

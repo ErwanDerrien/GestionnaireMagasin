@@ -1,4 +1,4 @@
-@startuml UC1 - Génération et consultation de rapport
+@startuml UC1 et UC3 - Génération et visualistion de rapport
 
 ' === Personnalisation visuelle ===
 skinparam {
@@ -18,16 +18,16 @@ database "Base de Données\nMySQL" as db
 
 == Génération du Rapport ==
 
-ge -> ui : "Générer le rapport mensuel"
+ge -> ui : "Accéder aux informations de gestion"
 activate ui
 
-ui -> api : GET /api/v1/reports
+ui -> api : GET /orders/report
 activate api
 
-api -> controller : generateReports()
+api -> controller : get_orders_report()
 activate controller
 
-controller -> service : getSalesOverview()
+controller -> service : generate_orders_report()
 activate service
 
 service -> db : SELECT product_id,\nname, quantity_sold,\nrevenue FROM products
@@ -46,7 +46,7 @@ deactivate db
 controller -> controller : Construire le rapport consolidé
 deactivate service
 
-controller --> api : 200 OK (PDF ou JSON)
+controller --> api : 200 OK (JSON)
 deactivate controller
 
 api --> ui : Rapport prêt à être affiché

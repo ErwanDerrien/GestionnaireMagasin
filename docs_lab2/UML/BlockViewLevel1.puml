@@ -1,22 +1,21 @@
 @startuml Niveau1
+left to right direction
+
 skinparam {
   BackgroundColor #F5F5F5
   ComponentBorderColor #333
   ComponentFontColor #333
 }
 
-
-package "Système de Gestion de Magasins" as system {
-  [Gestion des Stocks] as stocks
-  [Génération de Rapports] as rapports
+rectangle "Docker container" {
+  rectangle "Serveur Flask" as sf
+  database "SQLite" as db
 }
 
-[Interface Utilisateur] as ui
-database "MySQL" as db
 
-stocks -r-> db
-rapports --> db
-ui --> stocks
-ui --> rapports
+rectangle "Site Web LitElements Serveur node" as ui
+
+sf --> db : ORM
+ui --> sf : http
 
 @enduml

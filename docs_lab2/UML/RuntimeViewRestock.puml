@@ -1,0 +1,80 @@
+@startuml UC2 - Consulter le stock et réapprovisionnement
+
+skinparam {
+  BackgroundColor #FFFFFF
+  ActorBorderColor #333333
+  ParticipantBackgroundColor #F5F5F5
+  SequenceMessageAlign reverse
+}
+
+actor "Employé" as employe <<Person>>
+participant "Interface\nGraphique" as interface
+participant "API REST" as api
+participant "StockController" as controller
+participant "StockService" as service
+database "Base de Données\nMySQL" as db
+
+== Consultation du Stock ==
+
+employe -> interface : "Consulter stock central"
+activate interface
+interface -> api : GET /products
+activate api
+api -> controller : get_all_products_route()
+activate controller
+controller -> service : stock_status()
+activate service
+service -> db : SELECT product_id, name, quantity,\nSUM(quantity) as total FROM stock\nGROUP BY product_id, name
+activate db
+db --> service : ResultSet
+deactivate db
+service --> controller : List<StockDTO>
+deactivate service
+controller --> api : ResponseEntity<List<StockDTO>>
+deactivate controller
+api --> interface : 200 OK (JSON)
+deactivate api
+interface --> employe : Affichage tableau des stocks
+deactivate interface
+
+== Réapprovisionnement ==
+
+employe -> interface : "Demander réapprovisionnement\n[Produit X, Quantité Y]"
+activate interface
+interface -> api : PUT /products/store/<int:store_id>/restock
+activate api
+api -> controller : restock_store_route(store_id)
+activate controller
+controller -> service : restock_store_products(productId, quantity)
+
+alt Stock suffisant
+  activate service
+  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = ?
+  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = central_store_id
+  db --> service : store_products_list
+  db --> service : central_store_products_list
+  service -> service : transfert de stock de central_store_products_list à store_products_list.
+  service -> db : UPDATE store_products_list and central_store_products_list
+  db --> service : rows updated
+  service --> controller : ReplenishmentResponse
+  deactivate service
+  controller --> api : 200 OK
+  api --> interface : "Demande enregistrée"
+else Stock insuffisant
+  activate service
+  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = ?
+  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = central_store_id
+  db --> service : store_products_list
+  db --> service : central_store_products_list
+  service -> service : Pas assez de produits dans central_store_products_list
+
+  controller --> api : 400 Le restock a échoué
+  api --> interface : "Stock suffisant"
+end
+
+deactivate controller
+deactivate api
+interface --> employe : Notification résultat
+deactivate interface
+
+@enduml

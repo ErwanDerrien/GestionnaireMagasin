@@ -95,7 +95,6 @@ def get_all_products_of_store_route(store_id):
             "message": f"Erreur lors de la récupération du stock: {str(e)}"
         }, 500)
 
-
 @app.route("/products/<store_id>/<search_term>", methods=["GET", "OPTIONS"])
 def search_product_route(search_term):
     if request.method == "OPTIONS":
@@ -188,7 +187,7 @@ def create_order_route():
             "status": "error",
             "message": f"Erreur serveur: {str(e)}"
         }, 500)
-    
+
 @app.route("/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
 def return_order_route(order_id):
     if request.method == "OPTIONS":
@@ -266,7 +265,7 @@ def get_store_orders(store_id):
             "status": "error",
             "message": f"Erreur lors de la récupération des commandes du magasin {store_id}: {str(e)}"
         }, 500)
-    
+
 @app.route("/reset", methods=["POST", "OPTIONS"])
 def reset_database_route():
     try:
@@ -380,7 +379,7 @@ def get_orders_report():
             "message": "Unexpected error",
             "details": str(e)
         }, 500)
-     
+
 @app.route("/products/store/<int:store_id>/restock", methods=["PUT", "OPTIONS"])
 def restock_store_route(store_id):
     if request.method == "OPTIONS":
@@ -406,6 +405,6 @@ def restock_store_route(store_id):
             "status": "error",
             "message": f"Erreur serveur: {str(e)}"
         }, 500)
-        
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)

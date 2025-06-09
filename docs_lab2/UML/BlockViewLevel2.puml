@@ -4,14 +4,19 @@ skinparam {
   ComponentStyle rectangle
 }
 
-component "Gestion des Stocks" as stocks {
-  [Service Stock] as service
-  [DAO MySQL] as dao
+component "Docker container" as dc {
+  component "Serveur Flask" as sf {
+    [API] as api
+    [Recherche de produits] as products
+    [Sauvegarde de commandes] as orders
+  }
+  database "MySQL" as db
 }
 
-database "MySQL" as db
-
-
-service --> dao
-dao --> db
+sf - api
+api -- products
+api -- orders
+products --> db : ORM
+orders --> db : ORM
+sf - dc : API sur :8080
 @enduml
