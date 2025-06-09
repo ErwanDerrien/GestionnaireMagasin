@@ -17,9 +17,10 @@ def login_route():
         if not data:
             return _cors_response({"status": "error", "message": "No data provided"}, 400)
         
-        # Logique d'authentification
         if data.get("username") == "manager" and data.get("password") == "test":
-            return _cors_response({"status": "success"}, 200)
+            return _cors_response({"status": "manager"}, 200)
+        elif data.get("username") == "employee" and data.get("password") == "test":
+            return _cors_response({"status": "employee"}, 200)
         else:
             return _cors_response({"status": "fail"}, 401)
             
@@ -47,50 +48,53 @@ def _cors_response(data, status_code):
 def home():
     return {"message": "API fonctionnelle"}
 
-@app.route("/products", methods=["GET"])
+@app.route("/products", methods=["GET", "OPTIONS"])
 def get_all_products_route():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+        
     try:
         products_data = stock_status()
         
-        if not products_data:
-            return jsonify({
-                "status": "success",
-                "message": "Aucun produit enregistré",
-                "data": {}
-            }), 200
-            
-        return jsonify({
+        return _cors_response({
             "status": "success",
             "data": products_data,
             "count": len(products_data)
-        }), 200
+        }, 200)
         
     except Exception as e:
-        return jsonify({
+        return _cors_response({
             "status": "error",
             "message": f"Erreur lors de la récupération du stock: {str(e)}"
-        }), 500
+        }, 500)
 
-@app.route("/products/<search_term>")
+@app.route("/products/<search_term>", methods=["GET", "OPTIONS"])
 def search_product_route(search_term):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+        
     try:
         products = search_product_service(search_term)
-        
         serialized_products = [p.to_dict() for p in products]
         
-        return jsonify({
+        response_data = {
             "status": "success",
             "data": serialized_products,
-            "count": len(serialized_products)
-        })
+            "count": len(serialized_products),
+            "message": "Aucun produit trouvé" if not serialized_products else None
+        }
+        
+        return _cors_response(response_data, 200)
     
     except Exception as e:
-        return jsonify({
+        return _cors_response({
             "status": "error",
-            "message": str(e)
-        }), 500
+            "message": str(e),
+            "data": [],
+            "count": 0
+        }, 500)
 
-@app.route("/orders", methods=["POST"])
+@app.route("/orders", methods=["POST", "OPTIONS"])
 def create_order_route():
     try:
         data = request.get_json()
@@ -112,7 +116,7 @@ def create_order_route():
             "message": str(e)
         }), 500
     
-@app.route("/orders/<int:order_id>", methods=["PUT"])
+@app.route("/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
 def return_order_route(order_id):
     try:
         # Appel à votre service existant
@@ -161,7 +165,7 @@ def get_all_orders_status():
             "message": f"Erreur lors de la récupération: {str(e)}"
         }), 500
     
-@app.route("/reset", methods=["POST"])
+@app.route("/reset", methods=["POST", "OPTIONS"])
 def reset_database_route():
     try:
         if reset_database():
