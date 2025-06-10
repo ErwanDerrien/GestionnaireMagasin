@@ -6,8 +6,8 @@ actor Dirigeants as di
 
 cloud "Site Web" as sw
 
-artifact Caisse as ca
-artifact Ordinateur as or
+artifact "Caisse\n(Navigateur)" as ca
+artifact "Ordinateur\n(Navigateur)" as or
 
 artifact Serveur {
     artifact "Docker Container " {

@@ -1,0 +1,62 @@
+@startuml ContexteTechnique
+
+left to right direction
+
+skinparam {
+    BackgroundColor #F9F9F9
+    ArrowColor #333333
+    ComponentBorderColor #333333
+    ComponentFontColor #333333
+    DatabaseBorderColor #228B22
+    QueueBorderColor #FF8C00
+    InterfaceBorderColor #1E90FF
+}
+
+
+rectangle "Serveur physique" as sp {
+    rectangle "Docker Container" as dc {
+
+        rectangle "Serveur Flask (Roule à partir d'un Dockerfile)" as sc {
+            component "store_manager.py" as sm
+            rectangle Services {
+                component "product_services.py" as products #FFD700
+                component "orders_services.py" as orders #F55700
+                component "login_services.py" as login #F56660
+
+
+            }
+            rectangle DAO {
+                component "product_DAO.py" as pdao
+                component "order_DAO.py" as odao
+            }
+        }
+        database "database.db" as db #228B22
+    }
+    dc -- sc : "Hosté sur le port :8080"
+}
+
+rectangle "Caisse 1" as c1
+rectangle "Caisse 2" as c2
+rectangle "Caisse 3" as c3
+
+cloud {
+    component "CI/CD Lab 1" as cicd #FF6347
+    artifact "Site Web" as sw
+}
+storage "Stock dans les enrepôts" as se
+
+Services --> DAO
+
+db <-- pdao : ORM
+db <-- odao : ORM
+
+se -- db : Représentation digitale/physique
+sp - dc : Port ouvert
+sw - sp : HTTP
+sm - sc
+sm -- Services
+sw -- c1
+sw -- c2 : "API Rest"
+sw -- c3
+
+@enduml

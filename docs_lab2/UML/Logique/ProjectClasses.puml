@@ -1,0 +1,64 @@
+@startuml ProjectClasses
+
+class Product {
+  +id: int
+  +name: str
+  +price: int
+  +category: str
+  +stock_quantity: int
+  +store_id: int
+  +max_quantity: int
+}
+
+class Order {
+  +id: int
+  +user_id: str
+  +price: int
+  +products: str
+  +status: str
+  +store_id: int
+}
+
+class ProductService {
+  +search_product_service(search_term: str) : list
+  +stock_status(store_id: int = None) : list
+  +restock_store_products(store_id: int) : bool
+}
+
+class OrderService {
+  +save_order(order_data: dict) : dict
+  +return_order(order_id: int) : str
+  +orders_status(store_id: int = None) : list
+  +generate_orders_report() : list
+}
+
+class LoginService {
+  +login(username: str, password: str, store_id: int) : dict
+}
+
+class StoreManagerController {
+  +login_route()
+  +get_all_products_route()
+  +get_all_products_of_store_route(store_id: int)
+  +search_product_route(search_term: str)
+  +create_order_route()
+  +return_order_route(order_id: int)
+  +get_all_orders_status()
+  +get_store_orders(store_id: int)
+  +reset_database_route()
+  +get_orders_report()
+  +restock_store_route(store_id: int)
+  -_build_cors_preflight_response()
+  -_cors_response(data: dict, status_code: int)
+}
+
+StoreManagerController --> ProductService : uses
+StoreManagerController --> OrderService : uses
+StoreManagerController --> LoginService : uses
+
+ProductService --> Product : uses
+OrderService --> Order : uses
+OrderService --> Product : uses
+LoginService ..> OrderService : authenticates users
+
+@enduml

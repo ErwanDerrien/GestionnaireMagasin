@@ -17,15 +17,25 @@ actor "Employés\nde magasin" as employes
 
 rectangle "Système Central" as system {
   usecase "Recherche de stock" as products
+  usecase "Consulter produits locaux" as cp
+  usecase "Consulter produits centre réapprovisionnement" as cpr
+  usecase "Réapprovisionner produits" as rp
   usecase "Gestion des commandes" as orders
+  usecase "Enregistrer une commande" as ec
+  usecase "Annuler une commande" as ac
   usecase "Génération de\nrapports consolidés" as rapports
   usecase "Tableaux de bord\nde performance" as dashboard
   
 }
 
+products --> cp
+products --> cpr
+products --> rp
 siege --> dashboard : "Web (HTTPS/JSON)\nConsultation performance"
-siege --> rapports : "Web (HTTPS/JSON)\nConsultation rapports"
+dashboard --> rapports
 employes --> products : "Web (HTTPS/JSON)\nSaisie des ventes"
 employes --> orders : "Web (HTTPS/JSON)\nSaisie des ventes"
+orders --> ec
+orders --> ac
 
 @enduml

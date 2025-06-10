@@ -97,7 +97,7 @@ Les objectifs clés incluent :
 | Siège Social        | Consultation des rapports       |
 
 Format/Protocole : Interface graphique web
-![Contexte métier](/out/docs_lab2/UML/ContexteMétier/ContexteMétier.png)
+![Usecases](/out/docs_lab2/UML/Usecases/ContexteMétier/ContexteMétier.png)
 
 ## 3.2 Contexte Technique
 
@@ -111,7 +111,7 @@ Format/Protocole : Interface graphique web
 - Doit coexister avec l'infrastructure CI/CD implémentée durant le lab 1
 - Doit le système doit rouler sur un docker container
 
-![Contexte métier](/out/docs_lab2/UML/ContexteTechnique/ContexteTechnique.png)
+![ContexteTechnique](/out/docs_lab2/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
 
 # 4. Stratégie de Solution
 
@@ -159,7 +159,7 @@ Format/Protocole : Interface graphique web
 
 ## 5.1 Vue Niveau 1 (Système Global)
 
-![Diagramme Niveau 1](/out/docs_lab2/UML/BlockViewLevel1/Niveau1.png)
+![BlockViewLevel1](/out/docs_lab2/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 
 **Composants principaux** :
 
@@ -176,7 +176,7 @@ Format/Protocole : Interface graphique web
 
 ## 5.2 Vue Niveau 2 (Détail Docker container)
 
-![Diagramme Niveau 2](/out/docs_lab2/UML/BlockViewLevel2/Niveau2.png)
+![BlockViewLevel2](/out/docs_lab2/UML/Deploiement/BlockViewLevel2/Niveau2.png)
 
 **Structure interne** :
 
@@ -197,19 +197,19 @@ Séparation stricte entre logique métier (Service) et persistance (ORM).
 
 ## UC1 et UC3 - Génération et visualistion de rapport
 
-![UC1](/out/docs_lab2/UML/RuntimeViewUC1/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
+![SequenceRestock](/out/docs_lab2/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
 
 ## UC2 – Consulter le stock central et déclencher un réapprovisionnement
 
-![UC2](/out/docs_lab2/UML/RuntimeViewUC2/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
+![SequenceSeeStats](/out/docs_lab2/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
 
 ## Sauvegarder une commande
 
-![SaveOrder](/out/docs_lab2/UML/RuntimeViewSaveOrder/Sauvegarder%20une%20commande.png)
+![SequenceSaveOrder](/out/docs_lab2/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
 
 # 7. Vue de déploiement
 
-![DeploymentView](/out/docs_lab2/UML/DeploymentView/Deployment%20View.png)
+![Physique](/out/docs_lab2/UML/Physique/DeploymentView/Deployment%20View.png)
 
 ### Node
 
@@ -264,44 +264,51 @@ Le backend est entièrement déployé dans un conteneur Docker, ce qui permet un
 
 ## ADR 1 Choix de Flask pour l'API
 
-### Statut  
+### Statut
+
 Implémenté
 
-### Contexte  
+### Contexte
+
 Lors du laboratoire 1, la communication entre l'interface utilisateur et la base de données était limitée et directe, avec peu de logique métier côté serveur. Avec l'évolution vers le laboratoire 2, le système doit gérer davantage de règles métier, de validations et d’interactions complexes entre les entités (commandes, produits, magasins, utilisateurs).  
 Il fallait un moyen simple, flexible et rapide à mettre en œuvre pour exposer ces fonctionnalités sous forme d’API REST, tout en gardant la maintenance facile et la possibilité d’évolution.
 
-### Décision  
+### Décision
+
 Nous avons décidé d’utiliser Flask comme framework backend pour l’API. Flask est léger, simple à prendre en main, compatible avec SQLAlchemy (notre ORM), et permet de construire des routes REST rapidement et efficacement.  
 Cela nous offre un contrôle granulaire sur les requêtes, les réponses, la gestion des erreurs et la sécurité, tout en gardant la possibilité d’étendre ou d’ajouter des fonctionnalités facilement.
 
-### Conséquences  
-- L’API est découplée de la couche frontend, facilitant les développements parallèles et la maintenance.  
-- Le backend peut évoluer indépendamment, par exemple en ajoutant des authentifications, middlewares, ou en intégrant d’autres services.  
-- Flask, grâce à sa simplicité, réduit la complexité de mise en place initiale, ce qui accélère le développement.  
-- Le choix impose de gérer manuellement certains aspects (gestion des erreurs, sécurité) mais offre aussi plus de flexibilité.  
+### Conséquences
+
+- L’API est découplée de la couche frontend, facilitant les développements parallèles et la maintenance.
+- Le backend peut évoluer indépendamment, par exemple en ajoutant des authentifications, middlewares, ou en intégrant d’autres services.
+- Flask, grâce à sa simplicité, réduit la complexité de mise en place initiale, ce qui accélère le développement.
+- Le choix impose de gérer manuellement certains aspects (gestion des erreurs, sécurité) mais offre aussi plus de flexibilité.
 - Le projet nécessite un serveur dédié pour héberger cette API, ce qui est pris en compte dans le déploiement via Docker.
 
 ## ADR 2 Choix de SQLite pour la persistance des données
 
-### Statut  
+### Statut
+
 Implémenté
 
-### Contexte  
+### Contexte
+
 Pour le laboratoire 1, il fallait une solution simple et légère pour stocker les données localement pendant le développement initial. Les exigences n’étaient pas encore très complexes et le système devait rester facile à configurer et à déployer.  
 Une base de données relationnelle intégrée, sans serveur à gérer, était idéale pour ce contexte.
 
-### Décision  
+### Décision
+
 Nous avons choisi d’utiliser SQLite comme solution de persistance. SQLite est une base de données relationnelle embarquée, qui stocke les données dans un simple fichier local.  
 Ce choix facilite le déploiement, évite la complexité d’un serveur de base de données et offre un bon support SQL pour les besoins actuels.
 
-### Conséquences  
-- Le système est facile à configurer et à démarrer, notamment pour les tests et le développement local.  
-- La gestion des données reste performante tant que la charge est modérée et les données de taille raisonnable.  
-- Ce choix limite la scalabilité et la gestion de connexions concurrentes par rapport à un serveur SQL dédié (ex : MySQL, PostgreSQL).  
-- Lors du passage à un contexte plus complexe (lab 2), un changement vers une base plus robuste pourra être envisagé.  
-- Le fichier de base de données peut être facilement sauvegardé, copié ou déplacé.
+### Conséquences
 
+- Le système est facile à configurer et à démarrer, notamment pour les tests et le développement local.
+- La gestion des données reste performante tant que la charge est modérée et les données de taille raisonnable.
+- Ce choix limite la scalabilité et la gestion de connexions concurrentes par rapport à un serveur SQL dédié (ex : MySQL, PostgreSQL).
+- Lors du passage à un contexte plus complexe (lab 2), un changement vers une base plus robuste pourra être envisagé.
+- Le fichier de base de données peut être facilement sauvegardé, copié ou déplacé.
 
 # 10. Exigences de qualité
 
@@ -424,3 +431,25 @@ Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les tro
 | **Tableau de bord**  | Interface de visualisation des KPI               |
 | **API REST**         | Interface de programmation pour les intégrations |
 | **Conteneur Docker** | Unité de déploiement isolée                      |
+
+# 12. Diagrammes restants
+
+![BlockViewLevel1](/out/docs_lab2/UML/Deploiement/BlockViewLevel1/Niveau1.png)
+
+![BlockViewLevel2](/out/docs_lab2/UML/Deploiement/BlockViewLevel2/Niveau2.png)
+
+![ContexteTechnique](/out/docs_lab2/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
+
+![Logique](/out/docs_lab2/UML/Logique/ProjectClasses/ProjectClasses.png)
+
+![Physique](/out/docs_lab2/UML/Physique/DeploymentView/Deployment%20View.png)
+
+![Process](/out/docs_lab2/UML/Processus/Process/ProcessServicesSwitchCase.png)
+
+![SequenceRestock](/out/docs_lab2/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
+
+![SequenceSaveOrder](/out/docs_lab2/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
+
+![SequenceSeeStats](/out/docs_lab2/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
+
+![Usecases](/out/docs_lab2/UML/Usecases/ContexteMétier/ContexteMétier.png)

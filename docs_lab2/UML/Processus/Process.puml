@@ -1,0 +1,49 @@
+@startuml ProcessServicesSwitchCase
+
+start
+:Recevoir requête utilisateur;
+
+partition AuthService {
+  :Si route = /login;
+  :Lire username, password, store_id;
+  :Appeler login(username, password, store_id);
+  :Retourner réponse d'authentification;
+}
+
+partition ProductService {
+  :Si route = /products ou /products/<store_id> ou /products/<store_id>/<search_term>;
+  switch (Type de requête produit)
+    case ("liste stock")
+      :Appeler stock_status(store_id?);
+    case ("recherche")
+      :Appeler search_product_service(search_term);
+    case ("restock")
+      :Appeler restock_store_products(store_id);
+    case (autre)
+      :Retourner erreur produit non supporté;
+  endswitch
+  :Retourner données produit;
+}
+
+partition OrderService {
+  :Si route = /orders ou /orders/<order_id> ou /orders/report;
+  switch (Type de requête commande)
+    case ("création commande")
+      :Lire données commande;
+      :Appeler save_order(data);
+    case ("retour commande")
+      :Lire order_id;
+      :Appeler return_order(order_id);
+    case ("statut commandes")
+      :Appeler orders_status(store_id?);
+    case ("rapport commandes")
+      :Appeler generate_orders_report();
+    case (autre)
+      :Retourner erreur commande non supportée;
+  endswitch
+  :Retourner données commande;
+}
+
+stop
+
+@enduml
