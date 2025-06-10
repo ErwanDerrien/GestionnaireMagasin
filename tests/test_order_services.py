@@ -13,7 +13,6 @@ from sqlalchemy.orm import sessionmaker
 
 from data.database import Base
 from src.Models.product import Product
-from src.Models.order import Order
 from src.Services import order_services
 
 # Configuration de la base de données en mémoire

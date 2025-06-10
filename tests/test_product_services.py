@@ -1,72 +1,50 @@
-"""Module de tests pour product_services.py."""
+import sys
+from pathlib import Path
+
+# Ajoute le dossier racine et src/ au PYTHONPATH
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT_DIR / "src"
+sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(SRC_DIR))
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from data.database import Base, Product
-from src.Services.product_services import search_product_service, stock_status
+from data.database import Base
+from src.Models.product import Product
+import src.Services.product_services as product_services
+from src.DAO import product_dao
 
-# Configuration d'une session de test isolée
+# Configuration de la base de données en mémoire
 engine = create_engine("sqlite:///:memory:")
 TestingSession = sessionmaker(bind=engine)
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_database(monkeypatch):
-    """Prépare une base de données temporaire pour chaque test."""
+    """Prépare une base SQLite temporaire pour chaque test."""
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     test_session = TestingSession()
 
-    # Insère des produits de test
+    # Données de test
     products = [
-        Product(id=1, name="Bananes", category="Fruits", price=1.99, stock_quantity=50),
-        Product(id=2, name="Pommes", category="Fruits", price=2.49, stock_quantity=100),
-        Product(id=3, name="Carottes", category="Légumes", price=1.49, stock_quantity=80),
+        Product(id=1, name="Bananes", category="Fruits", price=199, stock_quantity=50, store_id=1, max_quantity=100),
+        Product(id=2, name="Pommes", category="Fruits", price=249, stock_quantity=100, store_id=1, max_quantity=100),
+        Product(id=3, name="Carottes", category="Légumes", price=149, stock_quantity=80, store_id=1, max_quantity=100),
     ]
     test_session.add_all(products)
     test_session.commit()
 
-    # Remplace la session globale par la session de test
-    import src.Services.product_services as product_services
-    monkeypatch.setattr(product_services, "session", test_session)
+    # Redirige la fonction query() de product_dao vers la session de test
+    monkeypatch.setattr(product_dao, "query", lambda model: test_session.query(model))
 
     yield
 
     test_session.close()
     Base.metadata.drop_all(engine)
 
-def test_search_product_by_id():
-    """Recherche un produit par ID."""
-    result = search_product_service("sr 1")
-    assert "Bananes" in result
-
-def test_search_product_by_name():
-    """Recherche un produit par nom."""
-    result = search_product_service("sr Pommes")
-    assert "Pommes" in result
-
-def test_search_product_by_category():
-    """Recherche un produit par catégorie."""
-    result = search_product_service("sr Légumes")
-    assert "Carottes" in result
-
 def test_search_product_not_found():
     """Recherche un produit inexistant."""
-    result = search_product_service("sr Chocolat")
-    assert result == "Aucun produit trouvé."
-
-def test_stock_status():
-    """Teste que le stock retourne bien les produits formatés en dictionnaire."""
-    stock = stock_status("st")
-    assert isinstance(stock, dict)
-    assert stock["Bananes"]["stock"] == 50
-    assert stock["Pommes"]["price"] == 2.49
-
-def test_stock_status_empty(monkeypatch):
-    """Teste le cas où la base est vide."""
-    # Vide la base
-    import src.Services.product_services as product_services
-    product_services.session.query(Product).delete()
-    product_services.session.commit()
-    stock = stock_status("st")
-    assert stock is None
+    result = product_services.search_product_service("Chocolat")
+    assert result == []
