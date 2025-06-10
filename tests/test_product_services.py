@@ -6,7 +6,6 @@ from sqlalchemy.orm import sessionmaker
 
 from data.database import Base, Product
 from src.Services.product_services import search_product_service, stock_status
-from src.Views.console_view import format_products
 
 # Configuration d'une session de test isolée
 engine = create_engine("sqlite:///:memory:")
