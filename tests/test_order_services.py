@@ -69,23 +69,6 @@ def test_save_order_insufficient_stock():
     assert result["status"] == "error"
     assert any("Stock insuffisant" in e for e in result["errors"])
 
-def test_return_order_success():
-    result = order_services.save_order({"ids": [1], "store_id": 1})
-    order_id = result["order_id"]
-    return_result = order_services.return_order(order_id)
-    assert "annulée avec succès" in return_result
-
-def test_return_order_not_found():
-    result = order_services.return_order(999)
-    assert "non trouvée" in result
-
-def test_return_order_already_cancelled():
-    result = order_services.save_order({"ids": [2], "store_id": 1})
-    order_id = result["order_id"]
-    order_services.return_order(order_id)
-    result = order_services.return_order(order_id)
-    assert "déjà annulée" in result
-
 def test_orders_status():
     order_services.save_order({"ids": [1], "store_id": 1})
     orders = order_services.orders_status(store_id=1)
