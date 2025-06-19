@@ -2,7 +2,7 @@ services:
   store_manager:
     build:
       context: ../
-      dockerfile: Dockerfile
+      dockerfile: ./docker/Dockerfile
     command: python -m src.Controller.store_manager
     ports:
       - "8080:8080"
