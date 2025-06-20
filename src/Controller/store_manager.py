@@ -1,38 +1,31 @@
 # src/Controller/store_manager.py
 from flask import Flask, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime
 from data.database import reset_database
 from src.Services.product_services import restock_store_products, search_product_service, stock_status
 from src.Services.order_services import orders_status, save_order, return_order, generate_orders_report
 from src.Services.login_services import login
+from flasgger import Swagger, swag_from
 
 app = Flask(__name__)
 
-@app.route("/login", methods=["POST", "OPTIONS"])
-def login_route():
-    if request.method == "OPTIONS":
-        return _build_cors_preflight_response()
-        
-    try:
-        data = request.get_json()
-        if not data:
-            return _cors_response({"status": "error", "message": "No data provided"}, 400)
+# Configuration Swagger
+app.config['SWAGGER'] = {
+    'title': 'Store Manager API',
+    'version': '1.0',
+    'description': 'API pour la gestion de magasins et produits'
+}
+swagger = Swagger(app)
 
-        username = data.get("username")
-        password = data.get("password")
-        store_id = data.get("store_id")
-
-        result = login(username, password, store_id)
-
-        if result.get("success"):
-            return _cors_response({"status": result["status"]}, 200)
-        else:
-            return _cors_response(
-                {"status": "error", "message": result["error"]}, result["status_code"]
-            )
-
-    except Exception as e:
-        return _cors_response({"status": "error", "message": str(e)}, 500)
+def _build_error_response(status_code, error_type, message, path):
+    return {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "status": status_code,
+        "error": error_type,
+        "message": message,
+        "path": path
+    }
 
 def _build_cors_preflight_response():
     response = jsonify({"status": "success"})
@@ -51,11 +44,111 @@ def _cors_response(data, status_code):
     response.headers.add("Content-Type", "application/json")
     return response, status_code
 
-@app.route("/")
+@app.route("/api/v1/login", methods=["POST", "OPTIONS"])
+@swag_from({
+    'tags': ['Authentification'],
+    'description': 'Connexion utilisateur',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'username': {'type': 'string'},
+                    'password': {'type': 'string'},
+                    'store_id': {'type': 'integer'}
+                }
+            }
+        }
+    ],
+    'responses': {
+        200: {'description': 'Connexion réussie'},
+        400: {'description': 'Données manquantes'},
+        401: {'description': 'Identifiants incorrects'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
+def login_route():
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+        
+    try:
+        data = request.get_json()
+        if not data:
+            error = _build_error_response(
+                400,
+                "Bad Request",
+                "Aucune donnée fournie",
+                request.path
+            )
+            return _cors_response(error, 400)
+
+        username = data.get("username")
+        password = data.get("password")
+        store_id = data.get("store_id")
+
+        if not username or not password:
+            error = _build_error_response(
+                400,
+                "Bad Request",
+                "Les champs 'username' et 'password' sont obligatoires",
+                request.path
+            )
+            return _cors_response(error, 400)
+
+        result = login(username, password, store_id)
+
+        if result.get("success"):
+            return _cors_response({"status": "success"}, 200)
+        else:
+            error = _build_error_response(
+                result.get("status_code", 401),
+                "Unauthorized" if result.get("status_code") == 401 else "Bad Request",
+                result.get("error", "Identifiants incorrects"),
+                request.path
+            )
+            return _cors_response(error, result.get("status_code", 401))
+
+    except Exception as e:
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur lors de la connexion: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
+
+@app.route("/api/v1/")
 def home():
     return {"message": "API fonctionnelle"}
 
-@app.route("/products", methods=["GET", "OPTIONS"])
+@app.route("/api/v1/products", methods=["GET", "OPTIONS"])
+@swag_from({
+    'tags': ['Produits'],
+    'description': 'Récupère tous les produits',
+    'responses': {
+        200: {
+            'description': 'Liste des produits',
+            'examples': {
+                'application/json': {
+                    "status": "success",
+                    "data": [{
+                        'id': 1,
+                        'name': 'Produit A',
+                        'category': 'cat1',
+                        'price': 10.99,
+                        'stock_quantity': 100,
+                        'store_id': 1
+                    }],
+                    "count": 1
+                }
+            }
+        },
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def get_all_products_route():
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
@@ -70,18 +163,48 @@ def get_all_products_route():
         }, 200)
         
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur lors de la récupération du stock: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur lors de la récupération du stock: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/products/<int:store_id>", methods=["GET", "OPTIONS"])
+@app.route("/api/v1/products/<int:store_id>", methods=["GET", "OPTIONS"])
+@swag_from({
+    'tags': ['Produits'],
+    'description': 'Récupère les produits d\'un magasin spécifique',
+    'parameters': [
+        {
+            'name': 'store_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True,
+            'description': 'ID du magasin'
+        }
+    ],
+    'responses': {
+        200: {'description': 'Liste des produits du magasin'},
+        404: {'description': 'Magasin non trouvé'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def get_all_products_of_store_route(store_id):
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
         
     try:
         products_data = stock_status(store_id)
+        
+        if not products_data:
+            error = _build_error_response(
+                404,
+                "Not Found",
+                f"Aucun produit trouvé pour le magasin {store_id}",
+                request.path
+            )
+            return _cors_response(error, 404)
         
         return _cors_response({
             "status": "success",
@@ -90,17 +213,52 @@ def get_all_products_of_store_route(store_id):
         }, 200)
         
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur lors de la récupération du stock: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur lors de la récupération du stock: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/products/<store_id>/<search_term>", methods=["GET", "OPTIONS"])
-def search_product_route(search_term):
+@app.route("/api/v1/products/<store_id>/<search_term>", methods=["GET", "OPTIONS"])
+@swag_from({
+    'tags': ['Produits'],
+    'description': 'Recherche de produits',
+    'parameters': [
+        {
+            'name': 'store_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True
+        },
+        {
+            'name': 'search_term',
+            'in': 'path',
+            'type': 'string',
+            'required': True
+        }
+    ],
+    'responses': {
+        200: {'description': 'Résultats de la recherche'},
+        400: {'description': 'Paramètres invalides'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
+def search_product_route(store_id, search_term):
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
         
     try:
+        if not search_term or len(search_term) < 2:
+            error = _build_error_response(
+                400,
+                "Bad Request",
+                "Le terme de recherche doit contenir au moins 2 caractères",
+                request.path
+            )
+            return _cors_response(error, 400)
+
         products = search_product_service(search_term)
         serialized_products = [p.to_dict() for p in products]
         
@@ -114,14 +272,46 @@ def search_product_route(search_term):
         return _cors_response(response_data, 200)
     
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": str(e),
-            "data": [],
-            "count": 0
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur lors de la recherche: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/orders", methods=["POST", "OPTIONS"])
+@app.route("/api/v1/orders", methods=["POST", "OPTIONS"])
+@swag_from({
+    'tags': ['Commandes'],
+    'description': 'Créer une nouvelle commande',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'store_id': {'type': 'integer'},
+                    'products': {
+                        'type': 'array',
+                        'items': {
+                            'product_id': {'type': 'integer'},
+                            'quantity': {'type': 'integer'}
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    'responses': {
+        201: {'description': 'Commande créée'},
+        400: {'description': 'Données invalides'},
+        404: {'description': 'Produit non trouvé'},
+        409: {'description': 'Stock insuffisant'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def create_order_route():
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
@@ -130,17 +320,22 @@ def create_order_route():
         data = request.get_json()
 
         if not data:
-            return _cors_response({
-                "status": "error",
-                "message": "Aucune donnée reçue"
-            }, 400)
+            error = _build_error_response(
+                400,
+                "Bad Request",
+                "Aucune donnée reçue",
+                request.path
+            )
+            return _cors_response(error, 400)
 
-        # Validation supplémentaire du store_id
         if 'store_id' not in data:
-            return _cors_response({
-                "status": "error",
-                "message": "Le champ 'store_id' est obligatoire"
-            }, 400)
+            error = _build_error_response(
+                400,
+                "Bad Request",
+                "Le champ 'store_id' est obligatoire",
+                request.path
+            )
+            return _cors_response(error, 400)
 
         result = save_order(data)
 
@@ -159,36 +354,64 @@ def create_order_route():
         elif result.get("status") == "error":
             message = result.get("message", "Erreur lors de la commande")
             errors = result.get("errors", [])
-            store_id = result.get("store_id")
-
-            response = {
-                "status": "error",
-                "message": message,
-                "errors": errors,
-                "store_id": store_id
-            }
-
-            # Gestion des codes d'erreur spécifiques
+            
+            error_type = "Bad Request"
+            status_code = 400
+            
             if any("stock insuffisant" in err.lower() for err in errors):
-                return _cors_response(response, 409)
+                error_type = "Conflict"
+                status_code = 409
             elif any("non trouvé" in err.lower() for err in errors):
-                return _cors_response(response, 404)
-            else:
-                return _cors_response(response, 400)
+                error_type = "Not Found"
+                status_code = 404
+                
+            error = _build_error_response(
+                status_code,
+                error_type,
+                message,
+                request.path
+            )
+            error["errors"] = errors
+            error["store_id"] = result.get("store_id")
+            
+            return _cors_response(error, status_code)
 
-        # Cas inattendu
-        return _cors_response({
-            "status": "error",
-            "message": "Réponse du service inattendue"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            "Réponse du service inattendue",
+            request.path
+        )
+        return _cors_response(error, 500)
 
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur serveur: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur serveur: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
+@app.route("/api/v1/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
+@swag_from({
+    'tags': ['Commandes'],
+    'description': 'Retourner une commande',
+    'parameters': [
+        {
+            'name': 'order_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True
+        }
+    ],
+    'responses': {
+        200: {'description': 'Commande retournée'},
+        400: {'description': 'Erreur dans la requête'},
+        404: {'description': 'Commande non trouvée'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def return_order_route(order_id):
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
@@ -198,10 +421,15 @@ def return_order_route(order_id):
 
         if "erreur" in result.lower() or "non trouvée" in result.lower():
             status_code = 404 if "non trouvée" in result.lower() else 400
-            return _cors_response({
-                "status": "error",
-                "message": result
-            }, status_code)
+            error_type = "Not Found" if status_code == 404 else "Bad Request"
+            
+            error = _build_error_response(
+                status_code,
+                error_type,
+                result,
+                request.path
+            )
+            return _cors_response(error, status_code)
 
         return _cors_response({
             "status": "success",
@@ -210,36 +438,60 @@ def return_order_route(order_id):
         }, 200)
 
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur serveur: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur serveur: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/orders", methods=["GET"])
+@app.route("/api/v1/orders", methods=["GET"])
+@swag_from({
+    'tags': ['Commandes'],
+    'description': 'Récupère toutes les commandes',
+    'responses': {
+        200: {'description': 'Liste des commandes'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def get_all_orders_status():
     try:
         orders_data = orders_status()
 
-        if not orders_data:
-            return _cors_response({
-                "status": "success",
-                "message": "Aucune commande trouvée",
-                "data": []
-            }, 200)
-
         return _cors_response({
             "status": "success",
             "data": orders_data,
-            "count": len(orders_data)
+            "count": len(orders_data) if orders_data else 0
         }, 200)
 
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur lors de la récupération: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur lors de la récupération: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/orders/<int:store_id>", methods=["GET"])
+@app.route("/api/v1/orders/<int:store_id>", methods=["GET"])
+@swag_from({
+    'tags': ['Commandes'],
+    'description': 'Récupère les commandes d\'un magasin',
+    'parameters': [
+        {
+            'name': 'store_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True
+        }
+    ],
+    'responses': {
+        200: {'description': 'Liste des commandes du magasin'},
+        404: {'description': 'Magasin non trouvé'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def get_store_orders(store_id):
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
@@ -248,11 +500,13 @@ def get_store_orders(store_id):
         orders_data = orders_status(store_id=store_id)
 
         if not orders_data:
-            return _cors_response({
-                "status": "success",
-                "message": f"Aucune commande trouvée pour le magasin {store_id}",
-                "data": []
-            }, 200)
+            error = _build_error_response(
+                404,
+                "Not Found",
+                f"Aucune commande trouvée pour le magasin {store_id}",
+                request.path
+            )
+            return _cors_response(error, 404)
 
         return _cors_response({
             "status": "success",
@@ -261,12 +515,23 @@ def get_store_orders(store_id):
         }, 200)
 
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur lors de la récupération des commandes du magasin {store_id}: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur lors de la récupération des commandes du magasin {store_id}: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/reset", methods=["POST", "OPTIONS"])
+@app.route("/api/v1/reset", methods=["POST", "OPTIONS"])
+@swag_from({
+    'tags': ['Administration'],
+    'description': 'Réinitialise la base de données',
+    'responses': {
+        200: {'description': 'Base réinitialisée'},
+        500: {'description': 'Erreur de réinitialisation'}
+    }
+})
 def reset_database_route():
     try:
         if request.method == "OPTIONS":
@@ -275,74 +540,64 @@ def reset_database_route():
         success = reset_database()
         
         if success:
-            response = {
+            return _cors_response({
                 "status": "success",
-                "message": "La base de données a été réinitialisée avec succès",
-                "details": {
-                    "actions": [
-                        "Tables supprimées et recréées",
-                        "Données initiales insérées",
-                        "Exemple de commande ajoutée"
-                    ],
-                    "counts": {
-                        "produits_ajoutés": 9,
-                        "commandes_ajoutées": 1
-                    }
-                }
-            }
-            return jsonify(response), 200
+                "message": "La base de données a été réinitialisée avec succès"
+            }, 200)
         else:
-            response = {
-                "status": "error",
-                "message": "La réinitialisation de la base de données a échoué",
-                "suggestion": "Vérifiez les logs du serveur pour plus de détails",
-                "possible_causes": [
-                    "Problème de connexion à la base de données",
-                    "Erreur de validation des données",
-                    "Problème de permissions"
-                ]
-            }
-            return jsonify(response), 500
+            error = _build_error_response(
+                500,
+                "Internal Server Error",
+                "La réinitialisation de la base de données a échoué",
+                request.path
+            )
+            return _cors_response(error, 500)
             
     except SQLAlchemyError as e:
-        error_response = {
-            "status": "error",
-            "message": "Erreur de base de données",
-            "technical_details": str(e),
-            "type": "database_error",
-            "action_required": "Contactez l'administrateur système"
-        }
-        return jsonify(error_response), 500
+        error = _build_error_response(
+            500,
+            "Database Error",
+            f"Erreur de base de données: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
         
     except Exception as e:
-        error_response = {
-            "status": "error",
-            "message": "Erreur inattendue",
-            "technical_details": str(e),
-            "type": "unexpected_error",
-            "action_required": "Contactez le support technique"
-        }
-        return jsonify(error_response), 500
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur inattendue: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/orders/report", methods=["GET"])
+@app.route("/api/v1/orders/report", methods=["GET"])
+@swag_from({
+    'tags': ['Rapports'],
+    'description': 'Génère un rapport des commandes',
+    'responses': {
+        200: {'description': 'Rapport généré'},
+        500: {'description': 'Erreur de génération'}
+    }
+})
 def get_orders_report():
     try:
         report_data = generate_orders_report()
         
         if not report_data:
-            return _cors_response({
-                "status": "error",
-                "message": "Impossible de générer le rapport",
-                "suggestion": "Vérifiez les logs du serveur"
-            }, 500)
+            error = _build_error_response(
+                500,
+                "Internal Server Error",
+                "Impossible de générer le rapport",
+                request.path
+            )
+            return _cors_response(error, 500)
             
         report = report_data[0]
         
-        # Calcul des résumés globaux
         total_revenue = sum(store['total_revenue'] for store in report['sales_by_store'])
         total_stock = sum(store['total_stock'] for store in report['remaining_stock'])
         
-        # Formatage de la réponse
         response = {
             "status": "success",
             "data": {
@@ -368,19 +623,41 @@ def get_orders_report():
         return _cors_response(response, 200)
         
     except SQLAlchemyError as e:
-        return _cors_response({
-            "status": "error",
-            "message": "Database error",
-            "details": str(e)
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Database Error",
+            f"Erreur de base de données: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": "Unexpected error",
-            "details": str(e)
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur inattendue: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
-@app.route("/products/store/<int:store_id>/restock", methods=["PUT", "OPTIONS"])
+@app.route("/api/v1/products/store/<int:store_id>/restock", methods=["PUT", "OPTIONS"])
+@swag_from({
+    'tags': ['Produits'],
+    'description': 'Restocker un magasin',
+    'parameters': [
+        {
+            'name': 'store_id',
+            'in': 'path',
+            'type': 'integer',
+            'required': True
+        }
+    ],
+    'responses': {
+        200: {'description': 'Magasin restocké'},
+        400: {'description': 'Échec du restock'},
+        404: {'description': 'Magasin non trouvé'},
+        500: {'description': 'Erreur serveur'}
+    }
+})
 def restock_store_route(store_id):
     if request.method == "OPTIONS":
         return _build_cors_preflight_response()
@@ -389,22 +666,28 @@ def restock_store_route(store_id):
         success = restock_store_products(store_id)
 
         if not success:
-            return _cors_response({
-                "status": "error",
-                "message": f"Le restock du magasin {store_id} a échoué."
-            }, 400)
+            error = _build_error_response(
+                400,
+                "Bad Request",
+                f"Le restock du magasin {store_id} a échoué",
+                request.path
+            )
+            return _cors_response(error, 400)
 
         return _cors_response({
             "status": "success",
-            "message": f"Le magasin {store_id} a été restocké avec succès.",
+            "message": f"Le magasin {store_id} a été restocké avec succès",
             "store_id": store_id
         }, 200)
 
     except Exception as e:
-        return _cors_response({
-            "status": "error",
-            "message": f"Erreur serveur: {str(e)}"
-        }, 500)
+        error = _build_error_response(
+            500,
+            "Internal Server Error",
+            f"Erreur serveur: {str(e)}",
+            request.path
+        )
+        return _cors_response(error, 500)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)

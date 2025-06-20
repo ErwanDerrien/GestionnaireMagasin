@@ -3,3 +3,4 @@ pylint
 pytest
 flask
 typing
+flasgger
