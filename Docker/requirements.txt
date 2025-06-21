@@ -4,3 +4,4 @@ pytest
 flask
 typing
 flasgger
+PyJWT
