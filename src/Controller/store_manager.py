@@ -16,7 +16,8 @@ app.config['JWT_EXPIRATION_DELTA'] = timedelta(hours=1)
 app.config['SWAGGER'] = {
     'title': 'Store Manager API',
     'version': '1.0',
-    'description': 'API pour la gestion de magasins et produits'
+    'description': 'API pour la gestion de magasins et produits',
+    'specs_route': '/apidocs/'
 }
 swagger = Swagger(app)
 
@@ -38,7 +39,24 @@ swagger = Swagger(app)
         }
     }],
     'responses': {
-        200: {'description': 'Connexion réussie'},
+        200: {
+            'description': 'Connexion réussie',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'status': {'type': 'string'},
+                    'token': {'type': 'string'},
+                    'user': {
+                        'type': 'object',
+                        'properties': {
+                            'username': {'type': 'string'},
+                            'role': {'type': 'string'},
+                            'store_id': {'type': 'integer'}
+                        }
+                    }
+                }
+            }
+        },
         400: {'description': 'Données manquantes'},
         401: {'description': 'Identifiants incorrects'},
         500: {'description': 'Erreur serveur'}
@@ -51,14 +69,14 @@ def login_route():
     try:
         data = request.get_json()
         if not data:
-            return build_error_response(400, "Bad Request", "Aucune donnée fournie", request.path)
+            return cors_response(build_error_response(400, "Bad Request", "Aucune donnée fournie", request.path), 400)
 
         username = data.get("username")
         password = data.get("password")
         store_id = data.get("store_id")
 
         if not username or not password:
-            return build_error_response(400, "Bad Request", "Identifiants manquants", request.path)
+            return cors_response(build_error_response(400, "Bad Request", "Identifiants manquants", request.path), 400)
 
         result = login(username, password, store_id)
         
@@ -79,23 +97,18 @@ def login_route():
                 }
             }, 200)
         else:
-            if result:
-                return build_error_response(
-                    result.get("status_code", 401),
-                    "Unauthorized",
-                    result.get("error", "Identifiants incorrects"),
-                    request.path
-                )
-            else:
-                return build_error_response(
-                    401,
-                    "Unauthorized",
-                    "Échec de l'authentification", 
-                    request.path
-                )
+            status_code = result.get("status_code", 401) if result else 401
+            message = result.get("error", "Identifiants incorrects") if result else "Échec de l'authentification"
+            return cors_response(
+                build_error_response(status_code, "Unauthorized", message, request.path),
+                status_code
+            )
 
     except Exception as e:
-        return build_error_response(500, "Internal Server Error", f"Erreur: {str(e)}", request.path)
+        return cors_response(
+            build_error_response(500, "Internal Server Error", f"Erreur: {str(e)}", request.path),
+            500
+        )
 
 @app.route("/api/v1/")
 def home():
@@ -105,22 +118,57 @@ def home():
 @role_required('get_all_products')
 @swag_from({
     'tags': ['Produits'],
-    'description': 'Récupère tous les produits',
+    'description': 'Récupère tous les produits avec pagination',
+    'parameters': [
+        {
+            'name': 'page',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 1,
+            'description': 'Numéro de page'
+        },
+        {
+            'name': 'per_page',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 10,
+            'description': 'Nombre d\'éléments par page'
+        }
+    ],
     'responses': {
         200: {
-            'description': 'Liste des produits',
-            'examples': {
-                'application/json': {
-                    "status": "success",
-                    "data": [{
-                        'id': 1,
-                        'name': 'Produit A',
-                        'category': 'cat1',
-                        'price': 10.99,
-                        'stock_quantity': 100,
-                        'store_id': 1
-                    }],
-                    "count": 1
+            'description': 'Liste paginée des produits',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'status': {'type': 'string'},
+                    'data': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'integer'},
+                                'name': {'type': 'string'},
+                                'category': {'type': 'string'},
+                                'price': {'type': 'number'},
+                                'stock_quantity': {'type': 'integer'},
+                                'store_id': {'type': 'integer'}
+                            }
+                        }
+                    },
+                    'pagination': {
+                        'type': 'object',
+                        'properties': {
+                            'total': {'type': 'integer'},
+                            'pages': {'type': 'integer'},
+                            'page': {'type': 'integer'},
+                            'per_page': {'type': 'integer'},
+                            'next': {'type': 'string', 'nullable': True},
+                            'prev': {'type': 'string', 'nullable': True}
+                        }
+                    }
                 }
             }
         },
@@ -134,12 +182,15 @@ def get_all_products_route():
         return build_cors_preflight_response()
         
     try:
-        products_data = stock_status()
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        
+        products_data, pagination = stock_status(page=page, per_page=per_page)
         
         return cors_response({
             "status": "success",
             "data": products_data,
-            "count": len(products_data)
+            "pagination": pagination
         }, 200)
         
     except Exception as e:
@@ -438,13 +489,68 @@ def return_order_route(order_id):
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/orders", methods=["GET"])
+@app.route("/api/v1/orders", methods=["GET", "OPTIONS"])
 @role_required('get_all_orders')
 @swag_from({
     'tags': ['Commandes'],
-    'description': 'Récupère toutes les commandes',
+    'description': 'Récupère toutes les commandes avec pagination',
+    'parameters': [
+        {
+            'name': 'page',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 1,
+            'description': 'Numéro de page'
+        },
+        {
+            'name': 'per_page',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 10,
+            'description': 'Nombre d\'éléments par page'
+        }
+    ],
     'responses': {
-        200: {'description': 'Liste des commandes'},
+        200: {
+            'description': 'Liste paginée des commandes',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'status': {'type': 'string'},
+                    'data': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'integer'},
+                                'user_id': {'type': 'string'},
+                                'status': {'type': 'string'},
+                                'products': {
+                                    'type': 'array',
+                                    'items': {'type': 'integer'}
+                                },
+                                'total_price': {'type': 'number'},
+                                'store_id': {'type': 'integer'},
+                                'created_at': {'type': 'string', 'format': 'date-time'}
+                            }
+                        }
+                    },
+                    'pagination': {
+                        'type': 'object',
+                        'properties': {
+                            'total': {'type': 'integer'},
+                            'pages': {'type': 'integer'},
+                            'page': {'type': 'integer'},
+                            'per_page': {'type': 'integer'},
+                            'next': {'type': 'string', 'nullable': True},
+                            'prev': {'type': 'string', 'nullable': True}
+                        }
+                    }
+                }
+            }
+        },
         401: {'description': 'Non autorisé'},
         403: {'description': 'Permission refusée'},
         500: {'description': 'Erreur serveur'}
@@ -452,12 +558,15 @@ def return_order_route(order_id):
 })
 def get_all_orders_status():
     try:
-        orders_data = orders_status()
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+
+        orders_data, pagination = orders_status(page=page, per_page=per_page)
 
         return cors_response({
             "status": "success",
             "data": orders_data,
-            "count": len(orders_data) if orders_data else 0
+            "pagination": pagination
         }, 200)
 
     except Exception as e:

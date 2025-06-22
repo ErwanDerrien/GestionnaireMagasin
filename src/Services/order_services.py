@@ -1,10 +1,10 @@
 #src/Services/order_services.py
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from data.database import session
 from src.Models.product import Product
 from src.Models.order import Order
-from typing import List, Dict, Optional, Union
-from sqlalchemy.exc import SQLAlchemyError
+from typing import List, Dict, Optional, Tuple, Union
 from src.DAO.order_dao import query
 
 def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[str, int, List]]:
@@ -144,35 +144,57 @@ def return_order(order_id: int) -> str:
     except Exception as e:
         return f"Erreur: {str(e)}"
     
-def orders_status(store_id: Optional[int] = None) -> List[Dict]:
+def orders_status(store_id: Optional[int] = None, page: int = 1, per_page: int = 10) -> Tuple[List[Dict], Dict]:
     try:
-        q = session.query(Order).order_by(Order.id)
+        # Création de la requête de base
+        query = session.query(Order).order_by(Order.id)
 
         if store_id is not None:
-            q = q.filter(Order.store_id == store_id)
+            query = query.filter(Order.store_id == store_id)
 
-        all_orders = q.all()
+        # Calcul du nombre total d'éléments
+        total = query.count()
+        
+        # Calcul du nombre de pages
+        pages = (total + per_page - 1) // per_page  # Arrondi supérieur
 
-        if not all_orders:
-            return []
+        # Calcul de l'offset
+        offset = (page - 1) * per_page
+        
+        # Récupération des résultats paginés
+        orders = query.offset(offset).limit(per_page).all()
 
+        # Formatage des résultats
         formatted_orders = []
-        for order in all_orders:
+        for order in orders:
             products_list = [int(pid) for pid in order.products.split(',') if pid.isdigit()]
-
+            
             formatted_orders.append({
                 "id": order.id,
                 "user_id": order.user_id,
                 "status": order.status,
                 "products": products_list,
                 "total_price": float(order.price) if order.price else 0.0,
-                "store_id": order.store_id
+                "store_id": order.store_id,
+                # "created_at": order.created_at.isoformat() if order.created_at else None
             })
 
-        return formatted_orders
+        # Construction des informations de pagination
+        pagination_info = {
+            "total": total,
+            "pages": pages,
+            "page": page,
+            "per_page": per_page,
+            "next": f"?page={page+1}&per_page={per_page}" if page < pages else None,
+            "prev": f"?page={page-1}&per_page={per_page}" if page > 1 else None
+        }
 
+        return formatted_orders, pagination_info
+
+    except SQLAlchemyError as e:
+        raise Exception(f"Erreur de base de données: {str(e)}")
     except Exception as e:
-        raise Exception(f"Erreur lors du formatage des commandes: {str(e)}")
+        raise Exception(f"Erreur inattendue: {str(e)}")
     
 def generate_orders_report() -> list:
     try:

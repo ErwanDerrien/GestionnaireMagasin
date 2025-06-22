@@ -52,7 +52,7 @@ def reset_database() -> bool:
         return False
     finally:
         session.close()
-        
+
 def apply_restock_logic(store_id: int) -> dict:
     details = []
 
