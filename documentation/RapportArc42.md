@@ -104,7 +104,8 @@ Les objectifs clés incluent :
 | Siège Social        | Consultation des rapports       |
 
 Format/Protocole : Interface graphique web
-![Usecases](/out/UML/Usecases/ContexteMétier/ContexteMétier.png)
+
+![Usecases](../out/UML/Usecases/ContexteMétier/ContexteMétier.png)
 
 ## 3.2 Contexte Technique
 
@@ -118,7 +119,7 @@ Format/Protocole : Interface graphique web
 - Doit coexister avec l'infrastructure CI/CD implémentée durant le lab 1
 - Doit le système doit rouler sur un docker container
 
-![ContexteTechnique](/out/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
+![ContexteTechnique](../out/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
 
 # 4. Stratégie de Solution
 
@@ -166,7 +167,7 @@ Format/Protocole : Interface graphique web
 
 ## 5.1 Vue Niveau 1 (Système Global)
 
-![BlockViewLevel1](/out/UML/Deploiement/BlockViewLevel1/Niveau1.png)
+![BlockViewLevel1](../out/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 
 **Composants principaux** :
 
@@ -183,7 +184,7 @@ Format/Protocole : Interface graphique web
 
 ## 5.2 Vue Niveau 2 (Détail Docker container)
 
-![BlockViewLevel2](/out/UML/Deploiement/BlockViewLevel2/Niveau2.png)
+![BlockViewLevel2](../out/UML/Deploiement/BlockViewLevel2/Niveau2.png)
 
 **Structure interne** :
 
@@ -204,19 +205,19 @@ Séparation stricte entre logique métier (Service) et persistance (ORM).
 
 ## UC1 et UC3 - Génération et visualistion de rapport
 
-![SequenceRestock](/out/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
+![SequenceRestock](../out/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
 
 ## UC2 – Consulter le stock central et déclencher un réapprovisionnement
 
-![SequenceSeeStats](/out/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
+![SequenceSeeStats](../out/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
 
 ## Sauvegarder une commande
 
-![SequenceSaveOrder](/out/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
+![SequenceSaveOrder](../out/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
 
 # 7. Vue de déploiement
 
-![Physique](/out/UML/Physique/DeploymentView/Deployment%20View.png)
+![Physique](../out/UML/Physique/DeploymentView/Deployment%20View.png)
 
 ### Node
 
@@ -441,22 +442,22 @@ Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les tro
 
 # 12. Diagrammes restants
 
-![BlockViewLevel1](/out/UML/Deploiement/BlockViewLevel1/Niveau1.png)
+![BlockViewLevel1](../out/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 
-![BlockViewLevel2](/out/UML/Deploiement/BlockViewLevel2/Niveau2.png)
+![BlockViewLevel2](../out/UML/Deploiement/BlockViewLevel2/Niveau2.png)
 
-![ContexteTechnique](/out/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
+![ContexteTechnique](../out/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
 
-![Logique](/out/UML/Logique/ProjectClasses/ProjectClasses.png)
+![Logique](../out/UML/Logique/ProjectClasses/ProjectClasses.png)
 
-![Physique](/out/UML/Physique/DeploymentView/Deployment%20View.png)
+![Physique](../out/UML/Physique/DeploymentView/Deployment%20View.png)
 
-![Process](/out/UML/Processus/Process/ProcessServicesSwitchCase.png)
+![Process](../out/UML/Processus/Process/ProcessServicesSwitchCase.png)
 
-![SequenceRestock](/out/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
+![SequenceRestock](../out/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
 
-![SequenceSaveOrder](/out/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
+![SequenceSaveOrder](../out/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
 
-![SequenceSeeStats](/out/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
+![SequenceSeeStats](../out/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
 
-![Usecases](/out/UML/Usecases/ContexteMétier/ContexteMétier.png)
+![Usecases](../out/UML/Usecases/ContexteMétier/ContexteMétier.png)

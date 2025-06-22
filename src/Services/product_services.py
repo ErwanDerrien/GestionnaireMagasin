@@ -1,7 +1,7 @@
-# src/Services/product_services.py
+# src/services/product_services.py
 from data.database import apply_restock_logic, session
-from src.Models.product import Product
-from src.DAO.product_dao import query
+from src.models.product import Product
+from src.dao.product_dao import query
 from typing import Tuple, List, Dict, Optional
 
 def search_product_service(search_term: str, page: int = 1, per_page: int = 10) -> Tuple[List[Dict], Dict]:

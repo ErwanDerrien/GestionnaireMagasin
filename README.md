@@ -16,3 +16,12 @@
 ## Exécuter localement les tests de services
 - Si ce projet roule à partir du fichier `.zip` ou d'un `git clone` soyez sur d'avoir les dépendences, installez au besoin avec `npm install pytest`. Vous pouvez l'enlever après avec `npm uninstall pytest`
 - `pytest tests/`
+
+## Générer le rapport en pdf
+`pandoc ./documentation/RapportArc42.md -o ./ErwanDerrien-RapportArc42.pdf \ 
+--resource-path=.:./out \
+--pdf-engine=xelatex \
+--listings \
+-V urlcolor=blue \
+-V geometry:margin=2cm \
+-V fontsize=12pt`

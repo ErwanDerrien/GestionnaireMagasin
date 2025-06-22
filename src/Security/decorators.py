@@ -44,7 +44,7 @@ def jwt_required(f):
             )
         
         try:
-            from src.Security.auth import decode_jwt  # Import local pour éviter la circularité
+            from src.security.auth import decode_jwt  # Import local pour éviter la circularité
             data = decode_jwt(token)
             g.current_user = data
         except Exception as e:

@@ -1,5 +1,5 @@
-# src/DAO/product_dao.py
+# src/dao/product_dao.py
 from data.database import session
-from src.Models.product import Product
+from src.models.product import Product
 def query(product: Product): 
     return session.query(product)

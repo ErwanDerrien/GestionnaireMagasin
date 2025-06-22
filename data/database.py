@@ -10,8 +10,8 @@ engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
 Session = sessionmaker(bind=engine)
 session = Session()
 
-from src.Models.order import Order
-from src.Models.product import Product
+from src.models.order import Order
+from src.models.product import Product
 
 def reset_database() -> bool:
     try:

@@ -1,11 +1,11 @@
-#src/Services/order_services.py
+#src/services/order_services.py
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from data.database import session
-from src.Models.product import Product
-from src.Models.order import Order
+from src.models.product import Product
+from src.models.order import Order
 from typing import List, Dict, Optional, Tuple, Union
-from src.DAO.order_dao import query
+from src.dao.order_dao import query
 
 def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[str, int, List]]:
     try:

@@ -1,5 +1,5 @@
 from flask import request, g
-from src.Security.decorators import jwt_required
+from src.security.decorators import jwt_required
 from functools import wraps
 
 PERMISSIONS = {
@@ -42,7 +42,7 @@ def role_required(permission):
                 token = request.headers['Authorization'].split(" ")[1] if len(request.headers['Authorization'].split(" ")) > 1 else None
             
             if not token:
-                from src.Security.decorators import build_error_response
+                from src.security.decorators import build_error_response
                 return build_error_response(
                     401,
                     "Unauthorized",
@@ -52,11 +52,11 @@ def role_required(permission):
             
             # Ensuite décoder le token
             try:
-                from src.Security.auth import decode_jwt
+                from src.security.auth import decode_jwt
                 data = decode_jwt(token)
                 g.current_user = data
             except Exception as e:
-                from src.Security.decorators import build_error_response
+                from src.security.decorators import build_error_response
                 return build_error_response(
                     401,
                     "Unauthorized",
@@ -67,7 +67,7 @@ def role_required(permission):
             current_user = getattr(g, 'current_user', None)
             
             if not current_user:
-                from src.Security.decorators import build_error_response
+                from src.security.decorators import build_error_response
                 return build_error_response(
                     401,
                     "Unauthorized",
@@ -81,7 +81,7 @@ def role_required(permission):
                 return f(*args, **kwargs)
             
             if permission not in PERMISSIONS.get(user_role, []):
-                from src.Security.decorators import build_error_response
+                from src.security.decorators import build_error_response
                 return build_error_response(
                     403,
                     "Forbidden",

@@ -3,7 +3,7 @@ services:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
-    command: python -m src.Controller.app
+    command: python -m src.controller.app
     ports:
       - "8080:8080"
     volumes:

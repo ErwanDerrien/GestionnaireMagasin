@@ -3,10 +3,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from flasgger import Swagger, swag_from
 from datetime import timedelta
 from data.database import reset_database
-from src.Services.product_services import restock_store_products, search_product_service, stock_status
-from src.Services.order_services import orders_status, save_order, return_order, generate_orders_report
-from src.Services.login_services import login
-from src.Security import generate_jwt, role_required, build_error_response, build_cors_preflight_response, cors_response
+from src.services.product_services import restock_store_products, search_product_service, stock_status
+from src.services.order_services import orders_status, save_order, return_order, generate_orders_report
+from src.services.login_services import login
+from src.security import generate_jwt, role_required, build_error_response, build_cors_preflight_response, cors_response
 
 app = Flask(__name__)
 
