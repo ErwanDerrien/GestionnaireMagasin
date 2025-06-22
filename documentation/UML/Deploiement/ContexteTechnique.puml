@@ -17,7 +17,7 @@ rectangle "Serveur physique" as sp {
     rectangle "Docker Container" as dc {
 
         rectangle "Serveur Flask (Roule à partir d'un Dockerfile)" as sc {
-            component "store_manager.py" as sm
+            component "app.py" as sm
             rectangle Services {
                 component "product_services.py" as products #FFD700
                 component "orders_services.py" as orders #F55700
