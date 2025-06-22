@@ -1,0 +1,605 @@
+{
+	"info": {
+		"_postman_id": "d5672e33-a628-41d5-8d85-ef506d4573b7",
+		"name": "StoreManager",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "13039325"
+	},
+	"item": [
+		{
+			"name": "Employee",
+			"item": [
+				{
+					"name": "SearchProduct",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/products",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetAllProducts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/products?page=1&per_page=2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"products"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetAllProducts OfStore",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/products/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "SaveOrder",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ids\": [5,5,6],\n    \"store_id\":1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/orders",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetAllOrders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/orders?page=1&per_page=2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"orders"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GetAllOrders OfStore",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/orders/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ReturnOrder",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/orders/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "RestockStore",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/products/store/1/restock",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"products",
+								"store",
+								"1",
+								"restock"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Manager",
+			"item": [
+				{
+					"name": "GetOrdersReport",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/orders/report",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"orders",
+								"report"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Dev",
+			"item": [
+				{
+					"name": "test",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\":\"manager\",\n    \"password\":\"password\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Success Manager",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Vérifier que la réponse est un succès",
+									"if (pm.response.code === 200) {",
+									"    // Parser la réponse JSON",
+									"    const responseJson = pm.response.json();",
+									"    ",
+									"    // Vérifier que le token existe dans la réponse",
+									"    if (responseJson.token) {",
+									"        // Sauvegarder le token dans une variable globale",
+									"        pm.globals.set(\"StoreManager_JWT\", responseJson.token);",
+									"        ",
+									"        console.log(\"Token JWT sauvegardé:\", responseJson.token);",
+									"        ",
+									"        // Optionnel: sauvegarder aussi les infos utilisateur",
+									"        if (responseJson.user) {",
+									"            pm.globals.set(\"StoreManager_Username\", responseJson.user.username);",
+									"            pm.globals.set(\"StoreManager_Role\", responseJson.user.role);",
+									"            pm.globals.set(\"StoreManager_StoreId\", responseJson.user.store_id);",
+									"        }",
+									"    } else {",
+									"        console.log(\"Aucun token trouvé dans la réponse\");",
+									"    }",
+									"} else {",
+									"    console.log(\"Échec de la connexion, code:\", pm.response.code);",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\":\"manager\",\n    \"password\":\"test\",\n    \"store_id\":0\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Success Employee",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Vérifier que la réponse est un succès",
+									"if (pm.response.code === 200) {",
+									"    // Parser la réponse JSON",
+									"    const responseJson = pm.response.json();",
+									"    ",
+									"    // Vérifier que le token existe dans la réponse",
+									"    if (responseJson.token) {",
+									"        // Sauvegarder le token dans une variable globale",
+									"        pm.globals.set(\"StoreManager_JWT\", responseJson.token);",
+									"        ",
+									"        console.log(\"Token JWT sauvegardé:\", responseJson.token);",
+									"        ",
+									"        // Optionnel: sauvegarder aussi les infos utilisateur",
+									"        if (responseJson.user) {",
+									"            pm.globals.set(\"StoreManager_Username\", responseJson.user.username);",
+									"            pm.globals.set(\"StoreManager_Role\", responseJson.user.role);",
+									"            pm.globals.set(\"StoreManager_StoreId\", responseJson.user.store_id);",
+									"        }",
+									"    } else {",
+									"        console.log(\"Aucun token trouvé dans la réponse\");",
+									"    }",
+									"} else {",
+									"    console.log(\"Échec de la connexion, code:\", pm.response.code);",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\":\"employee\",\n    \"password\":\"test\",\n    \"store_id\":1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Success Options",
+					"request": {
+						"method": "OPTIONS",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\":\"manager\",\n    \"password\":\"password\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login Fail",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Vérifier que la réponse est un succès",
+									"if (pm.response.code === 200) {",
+									"    // Parser la réponse JSON",
+									"    const responseJson = pm.response.json();",
+									"    ",
+									"    // Vérifier que le token existe dans la réponse",
+									"    if (responseJson.token) {",
+									"        // Sauvegarder le token dans une variable globale",
+									"        pm.globals.set(\"StoreManager_JWT\", responseJson.token);",
+									"        ",
+									"        console.log(\"Token JWT sauvegardé:\", responseJson.token);",
+									"        ",
+									"        // Optionnel: sauvegarder aussi les infos utilisateur",
+									"        if (responseJson.user) {",
+									"            pm.globals.set(\"StoreManager_Username\", responseJson.user.username);",
+									"            pm.globals.set(\"StoreManager_Role\", responseJson.user.role);",
+									"            pm.globals.set(\"StoreManager_StoreId\", responseJson.user.store_id);",
+									"        }",
+									"    } else {",
+									"        console.log(\"Aucun token trouvé dans la réponse\");",
+									"        // Clear des variables même si pas de token dans succès",
+									"        clearAuthVariables();",
+									"    }",
+									"} else {",
+									"    console.log(\"Échec de la connexion, code:\", pm.response.code);",
+									"    ",
+									"    // Parser la réponse d'erreur pour plus d'infos",
+									"    try {",
+									"        const errorResponse = pm.response.json();",
+									"        console.log(\"Détails de l'erreur:\", errorResponse.message || errorResponse.error);",
+									"        ",
+									"        // Si c'est une erreur 401 (Unauthorized), nettoyer toutes les variables d'auth",
+									"        if (pm.response.code === 401 || errorResponse.status === 401) {",
+									"            console.log(\"Erreur d'authentification - nettoyage des variables...\");",
+									"            clearAuthVariables();",
+									"        }",
+									"    } catch (e) {",
+									"        console.log(\"Impossible de parser la réponse d'erreur:\", e.message);",
+									"        // En cas de doute, nettoyer quand même les variables pour les erreurs d'auth",
+									"        if (pm.response.code === 401) {",
+									"            clearAuthVariables();",
+									"        }",
+									"    }",
+									"}",
+									"",
+									"// Fonction pour nettoyer toutes les variables d'authentification",
+									"function clearAuthVariables() {",
+									"    // Clear des variables globales d'authentification",
+									"    pm.globals.unset(\"StoreManager_JWT\");",
+									"    pm.globals.unset(\"StoreManager_Username\");",
+									"    pm.globals.unset(\"StoreManager_Role\");",
+									"    pm.globals.unset(\"StoreManager_StoreId\");",
+									"    ",
+									"    // Clear des variables d'environnement d'authentification (si elles existent)",
+									"    pm.environment.unset(\"StoreManager_JWT\");",
+									"    pm.environment.unset(\"StoreManager_Username\");",
+									"    pm.environment.unset(\"StoreManager_Role\");",
+									"    pm.environment.unset(\"StoreManager_StoreId\");",
+									"    ",
+									"    console.log(\"✅ Variables d'authentification nettoyées\");",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\":\"non\",\n    \"password\":\"password\",\n    \"store_id\":1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/v1/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ResetDatabase",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/reset",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"reset"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{StoreManager_JWT}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

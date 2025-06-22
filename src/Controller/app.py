@@ -631,7 +631,7 @@ def get_store_orders(store_id):
         return cors_response(error, 500)
 
 @app.route("/api/v1/reset", methods=["POST", "OPTIONS"])
-@role_required('reset_database')
+# @role_required('reset_database')
 @swag_from({
     'tags': ['Administration'],
     'description': 'Réinitialise la base de données',
