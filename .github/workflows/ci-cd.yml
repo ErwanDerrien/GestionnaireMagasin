@@ -50,7 +50,7 @@ jobs:
             - name: Build and push Docker image
               uses: docker/build-push-action@v5
               with:
-                  context: ./docker
-                  file: ./Dockerfile
+                  context: .
+                  file: ./docker/Dockerfile
                   push: true
                   tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
