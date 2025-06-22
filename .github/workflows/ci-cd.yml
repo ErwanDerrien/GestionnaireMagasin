@@ -24,10 +24,8 @@ jobs:
               with:
                   python-version: '3.11'
 
-            - name: Installer les dépendances
-              run: |
-                  pip install pylint pytest sqlalchemy
-                  # Retirez 'pip install -e .' si vous n'avez pas de setup.py
+            - name: Installer les dépendances via requirements.txt
+              run: pip install -r requirements.txt
 
             - name: Linter tous les fichiers Python
               run: |
