@@ -1,10 +1,62 @@
 services:
-  store_manager:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - store_manager_1
+      - store_manager_2
+      - store_manager_3
+    networks:
+      - monitoring_net
+
+  store_manager_1:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
     command: python -m src.controller.app
-    ports:
-      - "8080:8080"
     volumes:
       - ../:/app
+    environment:
+      - INSTANCE_NUM=1
+      - PROMETHEUS_METRICS_PORT=8080
+    ports:
+      - "8081:8080"  # Temporaire pour debug
+    networks:
+      - monitoring_net
+
+  store_manager_2:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+    command: python -m src.controller.app
+    volumes:
+      - ../:/app
+    environment:
+      - INSTANCE_NUM=2
+      - PROMETHEUS_METRICS_PORT=8080
+    ports:
+      - "8082:8080"  # Temporaire pour debug
+    networks:
+      - monitoring_net
+
+  store_manager_3:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+    command: python -m src.controller.app
+    volumes:
+      - ../:/app
+    environment:
+      - INSTANCE_NUM=3
+      - PROMETHEUS_METRICS_PORT=8080
+    ports:
+      - "8083:8080"  # Temporaire pour debug
+    networks:
+      - monitoring_net
+
+networks:
+  monitoring_net:
+    driver: bridge

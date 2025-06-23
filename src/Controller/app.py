@@ -33,6 +33,14 @@ def custom_metrics():
     response = Response(data, mimetype='text/plain')
     return cors_response(response, 200)
 
+import os
+
+instance_num = os.getenv('INSTANCE_NUM', 'standalone')
+
+@app.route('/instance-info')
+def instance_info():
+    return {"instance": instance_num}, 200
+
 @app.route("/api/v1/login", methods=["POST", "OPTIONS"])
 @swag_from({
     'tags': ['Authentification'],
