@@ -11,7 +11,7 @@ sys.path.insert(0, str(SRC_DIR))
 
 # Import avec fallback mocké si échec
 try:
-    from src.Services import product_services
+    from src.services import product_services
 except ImportError:
     product_services = Mock()
 

@@ -12,10 +12,10 @@ if root_dir not in sys.path:
 # Mock des modules avant l'import de l'app
 mock_modules = [
     'data.database',
-    'src.Services.product_services',
-    'src.Services.order_services', 
-    'src.Services.login_services',
-    'src.Security'
+    'src.services.product_services',
+    'src.services.order_services', 
+    'src.services.login_services',
+    'src.security'
 ]
 
 for module in mock_modules:
@@ -23,16 +23,16 @@ for module in mock_modules:
         sys.modules[module] = Mock()
 
 # Configuration des mocks avec des valeurs par défaut
-sys.modules['src.Security'].generate_jwt = Mock(return_value='fake_jwt_token')
-sys.modules['src.Security'].role_required = lambda perm: lambda f: f
-sys.modules['src.Security'].build_error_response = Mock(side_effect=lambda code, error, message, path: {
+sys.modules['src.security'].generate_jwt = Mock(return_value='fake_jwt_token')
+sys.modules['src.security'].role_required = lambda perm: lambda f: f
+sys.modules['src.security'].build_error_response = Mock(side_effect=lambda code, error, message, path: {
     'status_code': code,
     'error': error,
     'message': message,
     'path': path
 })
-sys.modules['src.Security'].build_cors_preflight_response = Mock(return_value=('', 200))
-sys.modules['src.Security'].cors_response = Mock(side_effect=lambda data, code: (data, code))
+sys.modules['src.security'].build_cors_preflight_response = Mock(return_value=('', 200))
+sys.modules['src.security'].cors_response = Mock(side_effect=lambda data, code: (data, code))
 
 @pytest.fixture
 def app():
@@ -123,15 +123,15 @@ def auth_headers():
 @pytest.fixture
 def mock_login_service():
     """Mock du service de login"""
-    with patch('src.Services.login_services.login') as mock:
+    with patch('src.services.login_services.login') as mock:
         yield mock
 
 @pytest.fixture
 def mock_product_services():
     """Mock des services produits"""
-    with patch('src.Services.product_services.stock_status') as mock_stock, \
-         patch('src.Services.product_services.search_product_service') as mock_search, \
-         patch('src.Services.product_services.restock_store_products') as mock_restock:
+    with patch('src.services.product_services.stock_status') as mock_stock, \
+         patch('src.services.product_services.search_product_service') as mock_search, \
+         patch('src.services.product_services.restock_store_products') as mock_restock:
         yield {
             'stock_status': mock_stock,
             'search_product_service': mock_search,
@@ -141,10 +141,10 @@ def mock_product_services():
 @pytest.fixture
 def mock_order_services():
     """Mock des services commandes"""
-    with patch('src.Services.order_services.orders_status') as mock_orders, \
-         patch('src.Services.order_services.save_order') as mock_save, \
-         patch('src.Services.order_services.return_order') as mock_return, \
-         patch('src.Services.order_services.generate_orders_report') as mock_report:
+    with patch('src.services.order_services.orders_status') as mock_orders, \
+         patch('src.services.order_services.save_order') as mock_save, \
+         patch('src.services.order_services.return_order') as mock_return, \
+         patch('src.services.order_services.generate_orders_report') as mock_report:
         yield {
             'orders_status': mock_orders,
             'save_order': mock_save,

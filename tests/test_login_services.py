@@ -69,56 +69,56 @@ def mock_login_implementation(username, password, store_id):
     }
 
 # Patch le module avant les tests
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_manager_success(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("manager", "test", 0)
     assert response == {"success": True, "status": "manager"}
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_manager_wrong_store(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("manager", "test", 1)
     assert response["success"] is False
     assert "gestionnaire" in response["error"].lower()
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_manager_wrong_password(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("manager", "wrong", 0)
     assert response["success"] is False
     assert response["status_code"] == 401
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_employee_success(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("employee", "test", 1)
     assert response == {"success": True, "status": "employee"}
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_employee_wrong_store(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("employee", "test", 0)
     assert response["success"] is False
     assert "employe" in response["error"].lower()
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_employee_wrong_password(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("employee", "wrong", 2)
     assert response["success"] is False
     assert response["status_code"] == 401
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_invalid_user(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("unknown", "test", 1)
     assert response["success"] is False
     assert response["status_code"] == 401
 
-@patch('src.Services.login_services.login', side_effect=mock_login_implementation)
+@patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_invalid_store(mock_login):
-    from src.Services.login_services import login
+    from src.services.login_services import login
     response = login("employee", "test", 99)
     assert response["success"] is False
     assert response["status_code"] == 403

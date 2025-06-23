@@ -11,7 +11,7 @@ sys.path.insert(0, str(SRC_DIR))
 
 # Import avec gestion d'erreur
 try:
-    from src.Services import order_services
+    from src.services import order_services
 except ImportError:
     order_services = Mock()
 
