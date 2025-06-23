@@ -4,9 +4,10 @@ from src.models.product import Product
 from src.dao.product_dao import query
 from typing import Tuple, List, Dict, Optional
 
-def search_product_service(search_term: str, page: int = 1, per_page: int = 10) -> Tuple[List[Dict], Dict]:
+
+def search_product_service(search_term: str, store_id: int, page: int = 1, per_page: int = 10) -> Tuple[List[Dict], Dict]:
     try:
-        query = session.query(Product)
+        query = session.query(Product).filter(Product.store_id == store_id)
         
         if search_term.isnumeric():
             search_id = int(search_term)

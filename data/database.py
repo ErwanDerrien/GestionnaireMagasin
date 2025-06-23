@@ -39,6 +39,20 @@ def reset_database() -> bool:
         # Conversion des produits en string pour la commande
         products_str = ",".join(map(str, [1, 1, 2]))
         
+        for store_id in [0, 1, 2, 3]:
+            products_for_store = session.query(Product.id).filter_by(store_id=store_id).limit(2).all()
+            if products_for_store:
+                products_str = ",".join(str(p[0]) for p in products_for_store)
+                session.add(Order(
+                    user_id=f'test_user_{store_id}',
+                    price=100 * len(products_for_store),
+                    products=products_str,
+                    status='completed',
+                    store_id=store_id
+                ))
+
+        session.commit()
+        
         # Ajout des données initiales
         session.add(Order(user_id='current_user', price=300, products=products_str, status='completed', store_id=1))
         session.add_all(initial_products)

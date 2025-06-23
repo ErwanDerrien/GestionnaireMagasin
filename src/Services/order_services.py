@@ -7,35 +7,36 @@ from src.models.order import Order
 from typing import List, Dict, Optional, Tuple, Union
 from src.dao.order_dao import query
 
-def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[str, int, List]]:
+def save_order(order_data: Dict[str, Union[List[Dict], int]]) -> Dict[str, Union[str, int, List]]:
+    print(f"\n--- NEW ORDER ATTEMPT ---")
+    print(f"Received order data: {order_data}")
+    
     try:
         # Validation initiale
-        if not order_data or not isinstance(order_data.get('ids'), list):
-            return {
-                "status": "error",
-                "message": "Format invalide. Utiliser {'ids': [1,2,3], 'store_id': 1}"
-            }
+        if not order_data:
+            print("Error: No order data received")
+            return {"status": "error", "message": "Aucune donnée reçue", "status_code": 400}
 
-        product_ids = order_data['ids']
         store_id = order_data.get('store_id')
+        products = order_data.get('products', [])
         
-        if not product_ids:
-            return {"status": "error", "message": "Aucun produit spécifié"}
-            
-        if not store_id or not isinstance(store_id, int):
-            return {"status": "error", "message": "Store ID manquant ou invalide"}
+        print(f"Store ID: {store_id}")
+        print(f"Products requested: {products}")
 
-        # Vérification des produits
+        if not store_id or not isinstance(store_id, int):
+            print("Error: Invalid store_id")
+            return {"status": "error", "message": "Store ID manquant ou invalide", "status_code": 400}
+            
+        if not products or not isinstance(products, list):
+            print("Error: Invalid products list")
+            return {"status": "error", "message": "Liste de produits invalide", "status_code": 400}
+
+        # Vérification des produits et stock
         valid_products = []
         total = 0
         errors = []
 
-        # Transaction temporaire
         with session.begin_nested():  
-            product_counts = {}
-            for pid in product_ids:
-                product_counts[pid] = product_counts.get(pid, 0) + 1
-
             seen_errors = set()
             for pid, count in product_counts.items():
                 product = session.query(Product).filter(
@@ -44,7 +45,7 @@ def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[
                 ).first()
 
                 if not product:
-                    msg = f"ID {pid} non trouvé dans le magasin {store_id}"
+                    msg = f"Produit ID {pid} non trouvé dans le magasin {store_id}"
                     if msg not in seen_errors:
                         errors.append(msg)
                         seen_errors.add(msg)
@@ -66,7 +67,8 @@ def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[
                 "message": "Problèmes avec certains produits",
                 "errors": errors,
                 "valid_products": [p.id for p in valid_products],
-                "store_id": store_id
+                "store_id": store_id,
+                "status_code": 409 if any("stock insuffisant" in e.lower() for e in errors) else 404
             }
 
         # Enregistrement final
@@ -83,7 +85,7 @@ def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[
             
             # Mise à jour du stock
             for p in valid_products:
-                p.stock_quantity -= 1
+                p.stock_quantity -= product_counts[p.id]
                 session.add(p)
             
             session.add(new_order)
@@ -93,7 +95,7 @@ def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[
                 "status": "success",
                 "order_id": new_order.id,
                 "total": total,
-                "products": products_str,
+                "products": [{"product_id": p.id, "name": p.name} for p in valid_products],
                 "store_id": store_id,
                 "message": f"Commande #{new_order.id} enregistrée pour le magasin {store_id}"
             }
@@ -103,13 +105,15 @@ def save_order(order_data: Dict[str, Union[List[int], int]]) -> Dict[str, Union[
             return {
                 "status": "error",
                 "message": f"Erreur base de données: {str(e)}",
-                "store_id": store_id
+                "store_id": store_id,
+                "status_code": 500
             }
             
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Erreur inattendue: {str(e)}"
+            "message": f"Erreur inattendue: {str(e)}",
+            "status_code": 500
         }
                 
 def return_order(order_id: int) -> str:

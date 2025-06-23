@@ -267,27 +267,45 @@ def get_all_products_of_store_route(store_id):
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/products/<store_id>/<search_term>", methods=["GET", "OPTIONS"])
+@app.route("/api/v1/products/<int:store_id>/<search_term>", methods=["GET", "OPTIONS"])
 @role_required('search_product')
 @swag_from({
     'tags': ['Produits'],
-    'description': 'Recherche de produits',
+    'description': 'Recherche de produits par magasin',
     'parameters': [
         {
             'name': 'store_id',
             'in': 'path',
             'type': 'integer',
-            'required': True
+            'required': True,
+            'description': 'ID du magasin'
         },
         {
             'name': 'search_term',
             'in': 'path',
             'type': 'string',
-            'required': True
+            'required': True,
+            'description': 'Terme de recherche (nom, catégorie ou ID du produit)'
+        },
+        {
+            'name': 'page',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 1,
+            'description': 'Numéro de page'
+        },
+        {
+            'name': 'per_page',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 10,
+            'description': 'Nombre d\'éléments par page'
         }
     ],
     'responses': {
-        200: {'description': 'Résultats de la recherche'},
+        200: {'description': 'Résultats de la recherche avec pagination'},
         400: {'description': 'Paramètres invalides'},
         401: {'description': 'Non autorisé'},
         403: {'description': 'Permission refusée'},
@@ -308,14 +326,23 @@ def search_product_route(store_id, search_term):
             )
             return cors_response(error, 400)
 
-        products = search_product_service(search_term)
-        serialized_products = [p.to_dict() for p in products]
+        # Récupération des paramètres de pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        
+        # Validation des paramètres de pagination
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 100:  # Limite maximale pour éviter les surcharges
+            per_page = 10
+
+        products, pagination_info = search_product_service(search_term, store_id, page, per_page)
         
         response_data = {
             "status": "success",
-            "data": serialized_products,
-            "count": len(serialized_products),
-            "message": "Aucun produit trouvé" if not serialized_products else None
+            "data": products,
+            "pagination": pagination_info,
+            "message": "Aucun produit trouvé" if not products else None
         }
         
         return cors_response(response_data, 200)
