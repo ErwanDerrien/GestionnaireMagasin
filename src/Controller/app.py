@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 from flasgger import Swagger, swag_from
+from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import generate_latest, PROCESS_COLLECTOR
 from datetime import timedelta
 from data.database import reset_database
 from src.services.product_services import restock_store_products, search_product_service, stock_status
@@ -20,6 +22,16 @@ app.config['SWAGGER'] = {
     'specs_route': '/apidocs/'
 }
 swagger = Swagger(app)
+
+# Prometheus config
+# PROCESS_COLLECTOR.register()
+metrics = PrometheusMetrics(app, path='/test')
+@app.route('/metrics')
+def custom_metrics():
+    from flask import Response
+    data = generate_latest()
+    response = Response(data, mimetype='text/plain')
+    return cors_response(response, 200)
 
 @app.route("/api/v1/login", methods=["POST", "OPTIONS"])
 @swag_from({

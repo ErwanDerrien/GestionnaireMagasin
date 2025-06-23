@@ -5,3 +5,4 @@ flask
 typing
 flasgger
 PyJWT
+prometheus_flask_exporter
