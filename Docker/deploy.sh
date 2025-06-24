@@ -6,6 +6,8 @@ INSTANCES=3
 NO_CACHE=""
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 PROMETHEUS_CONFIG="./prometheus.yml"
+NGINX_CONFIG="./nginx.conf"
+NGINX_UPSTREAM_CONFIG="least_conn"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -17,8 +19,38 @@ while [[ $# -gt 0 ]]; do
             NO_CACHE="--no-cache"
             shift
             ;;
+        --config)
+            case $2 in
+                round_robin|rr)
+                    NGINX_UPSTREAM_CONFIG="round_robin"
+                    ;;
+                least_conn|lc)
+                    NGINX_UPSTREAM_CONFIG="least_conn"
+                    ;;
+                ip_hash|hash)
+                    NGINX_UPSTREAM_CONFIG="ip_hash"
+                    ;;
+                weighted|w)
+                    NGINX_UPSTREAM_CONFIG="weighted"
+                    ;;
+                *)
+                    echo "Erreur: Configuration nginx invalide. Options: round_robin|rr, least_conn|lc, ip_hash|hash, weighted|w"
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
         -h|--help)
-            echo "Usage: $0 [--instances N] [--no-cache]"
+            echo "Usage: $0 [--instances N] [--no-cache] [--config CONFIG]"
+            echo ""
+            echo "Options:"
+            echo "  --instances N     Nombre d'instances (défaut: 3)"
+            echo "  --no-cache        Build sans cache Docker"
+            echo "  --config CONFIG   Configuration nginx:"
+            echo "                      round_robin|rr    - Round Robin (défaut)"
+            echo "                      least_conn|lc     - Least Connections"
+            echo "                      ip_hash|hash      - IP Hash"
+            echo "                      weighted|w        - Weighted Round Robin"
             exit 0
             ;;
         *)
@@ -37,7 +69,104 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-log_message "🚀 Déploiement avec $INSTANCES instance(s) store_manager"
+log_message "🚀 Déploiement avec $INSTANCES instance(s) store_manager (config: $NGINX_UPSTREAM_CONFIG)"
+log_message "📝 Génération du nginx.conf"
+
+generate_nginx_config() {
+    local file="$1"
+    local instances="$2"
+    local config_type="$3"
+
+    cat > "$file" << 'EOF'
+# Configuration générée automatiquement par deploy.sh
+# Ne pas modifier manuellement
+
+EOF
+
+    # Générer les différentes configurations upstream
+    case $config_type in
+        "round_robin")
+            cat >> "$file" << EOF
+# Configuration Round Robin (par défaut)
+upstream store_manager {
+EOF
+            for i in $(seq 1 $instances); do
+                echo "    server store_manager_$i:8080;" >> "$file"
+            done
+            echo "}" >> "$file"
+            ;;
+        "least_conn")
+            cat >> "$file" << EOF
+# Configuration Least Connections
+upstream store_manager {
+    least_conn;
+EOF
+            for i in $(seq 1 $instances); do
+                echo "    server store_manager_$i:8080;" >> "$file"
+            done
+            echo "}" >> "$file"
+            ;;
+        "ip_hash")
+            cat >> "$file" << EOF
+# Configuration IP Hash
+upstream store_manager {
+    ip_hash;
+EOF
+            for i in $(seq 1 $instances); do
+                echo "    server store_manager_$i:8080;" >> "$file"
+            done
+            echo "}" >> "$file"
+            ;;
+        "weighted")
+            cat >> "$file" << EOF
+# Configuration Weighted Round Robin
+upstream store_manager {
+EOF
+            for i in $(seq 1 $instances); do
+                # Poids décroissant : premier serveur poids le plus élevé
+                local weight=$((instances - i + 1))
+                echo "    server store_manager_$i:8080 weight=$weight;" >> "$file"
+            done
+            echo "}" >> "$file"
+            ;;
+    esac
+
+    cat >> "$file" << 'EOF'
+
+server {
+    listen 80;
+    
+    location / {
+        proxy_pass http://store_manager;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        proxy_buffering off;
+    }
+
+    # Endpoint de health check pour toutes les instances
+    location /health {
+        proxy_pass http://store_manager;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Métriques Prometheus depuis store_manager_1 seulement
+    location /metrics {
+        proxy_pass http://store_manager_1:8080/metrics;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+EOF
+}
+
+generate_nginx_config "$NGINX_CONFIG" "$INSTANCES" "$NGINX_UPSTREAM_CONFIG"
+
 log_message "📝 Génération du docker-compose.yml"
 
 generate_docker_compose() {
@@ -75,43 +204,9 @@ EOF
   nginx:
     image: nginx:alpine
     ports:
-      - '80:8080'
-    command: >
-      /bin/sh -c "echo -e \"
-        upstream store_manager {
-          least_conn;
-EOF
-
-    for i in $(seq 1 $instances); do
-        echo "          server store_manager_$i:8080 max_fails=3 fail_timeout=30s;" >> "$file"
-    done
-
-    cat >> "$file" << 'EOF'
-        }
-        server {
-          listen 80;
-          location / {
-            proxy_pass http://store_manager_lc;
-            proxy_set_header Host \$host;
-            proxy_set_header X-Real-IP \$remote_addr;
-            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto \$scheme;
-            proxy_connect_timeout 30s;
-            proxy_send_timeout 30s;
-            proxy_read_timeout 30s;
-            proxy_buffering off;
-          }
-          location /health {
-            proxy_pass http://store_manager_lc;
-            proxy_set_header Host \$host;
-            proxy_set_header X-Real-IP \$remote_addr;
-          }
-          location /metrics {
-            proxy_pass http://store_manager_lc_1:8080/metrics;
-            proxy_set_header Host \$host;
-            proxy_set_header X-Real-IP \$remote_addr;
-          }
-        }\" > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+      - '80:80'
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
 EOF
 
