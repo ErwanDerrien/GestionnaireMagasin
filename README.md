@@ -36,6 +36,9 @@
 
 ## Générer le rapport en pdf
 
+
+`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"`
+`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --skip-tests`
 `pandoc ./documentation/RapportArc42.md -o ./ErwanDerrien-RapportArc42.pdf \ 
 --resource-path=.:./out \
 --pdf-engine=xelatex \

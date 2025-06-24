@@ -118,17 +118,17 @@ services:
       - store_manager_2
       - store_manager_3
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - '3001:3000'
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - monitoring_net
-    container_name: grafana
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - '3001:3000'
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin123
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   networks:
+  #     - monitoring_net
+  #   container_name: grafana
 
 networks:
   monitoring_net:
