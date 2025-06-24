@@ -15,7 +15,8 @@
 ## Lancer le serveur Flask pour le backend (Docker doit être installé)
 
 - `cd ./docker; docker compose down && docker compose build --no-cache && docker compose up`
-
+- `cd ./docker; ./deploy.sh --instances 5 --config least_conn`
+- 
 ## Lire la documentation de l'API (une fois le serveur démarré)
 
 - Aller sur un navigateur à `http://localhost:8080/apidocs/`

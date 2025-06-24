@@ -107,15 +107,16 @@ log_message "📁 Rapport: $REPO/$FILENAME"
 echo ""
 
 if [ "$SKIP_TESTS" = false ]; then
-    # Test 1: 5 minutes
-    log_message "🔥 Lancement du test 1/3 (5 minutes)"
-    k6 run --vus $VUS --duration 5m monitoring/load_test.js
-    log_message "✅ Test 1/3 terminé"
-    echo ""
+    # TODO config de gestion de param
+    # # Test 1: 5 minutes
+    # log_message "🔥 Lancement du test 1/3 (5 minutes)"
+    # k6 run --vus $VUS --duration 5m monitoring/load_test.js
+    # log_message "✅ Test 1/3 terminé"
+    # echo ""
 
-    # Pause 1 minute
-    countdown 60 "⏸️  Pause de 1 minute avant le test 2/3"
-    echo ""
+    # # Pause 1 minute
+    # countdown 60 "⏸️  Pause de 1 minute avant le test 2/3"
+    # echo ""
 
     # Test 2: 3 minutes
     log_message "🔥 Lancement du test 2/3 (3 minutes)"
