@@ -2,23 +2,6 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  # Prometheus lui-même
-  - job_name: 'prometheus'
+  - job_name: 'store_managers'
     static_configs:
-      - targets: ['localhost:9090']
-
-  # Optionnel: monitoring individuel par instance
-  - job_name: 'store_manager_1'
-    static_configs:
-      - targets: ['store_manager_1:8080']
-    metrics_path: '/metrics'
-    
-  - job_name: 'store_manager_2'
-    static_configs:
-      - targets: ['store_manager_2:8080']
-    metrics_path: '/metrics'
-    
-  - job_name: 'store_manager_3'
-    static_configs:
-      - targets: ['store_manager_3:8080']
-    metrics_path: '/metrics'
+      - targets: ['store_manager_1:8080', 'store_manager_2:8080', 'store_manager_3:8080']

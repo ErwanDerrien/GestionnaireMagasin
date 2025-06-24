@@ -25,7 +25,7 @@ export let options = {
 };
 
 // Données de test
-const BASE_URL = 'http://localhost:8080/api/v1';
+const BASE_URL = 'http://localhost:80/api/v1';
 const users = [
   { username: 'manager', password: 'test', store_id: 0, role: 'manager' },
   { username: 'employee', password: 'test', store_id: 1, role: 'employee' },
