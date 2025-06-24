@@ -48,5 +48,31 @@
 
 Visualiser sur Prometheus :
 
-- `sum by(instance) (flask_http_request_duration_seconds_sum / flask_http_request_duration_seconds_count)`
+Mode durée relative :
+`python ./monitoring/generate_prometheus_graphs.py \
+  --repo "after_round_robin" \
+  --filename "round_robin" \
+  --duration 40`
+
+Mode plage absolue :
+`python ./monitoring/generate_prometheus_graphs.py \
+  --repo "prod" \
+  --filename "incident_analysis" \
+  --start "2024-06-24T13:25:00" \
+  --end "2024-06-25T13:45:00"`
+
+Avec dimensions customisées :
+`python ./monitoring/generate_prometheus_graphs.py \
+  --repo "large_report" \
+  --filename "wide_format" \
+  --duration 120 \
+  --width 20 --height 10`
+
+Pour requests per seconds
+- `sum by(path) (
+  rate(flask_http_request_duration_seconds_count{instance=~"store_manager.*"}[1m])
+)`
+Pour mémoire
 - `sum by(instance) (process_resident_memory_bytes / 1024 / 1024)`
+Pour CPU
+- `sum by(instance) (rate(process_cpu_seconds_total[15m]) * 100)`
