@@ -178,7 +178,7 @@ pip install --quiet matplotlib python-dateutil requests
 log_message "📊 Exécution du script de génération de rapport..."
 python ./monitoring/generate_prometheus_graphs.py \
     --repo "$REPO" \
-    --filename "$FILENAME" \
+    --filename "$FILENAME-$VUS-vus" \
     --start "$START_TIME" \
     --end "$END_TIME"
 

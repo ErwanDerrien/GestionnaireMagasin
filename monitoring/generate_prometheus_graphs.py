@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import argparse
 import os
 import dateutil.parser
+from matplotlib.backends.backend_pdf import PdfPages
 
 # Configuration Prometheus
 PROMETHEUS_URL = "http://localhost:9091"
@@ -35,34 +36,42 @@ def fetch_prometheus_data(query, start_time, end_time, step):
     return response.json()
 
 def plot_to_pdf(queries_data, output_dir, filename, figsize):
-    plt.figure(figsize=figsize)
-    
-    ordered_titles = [
-        "Requests per second",
-        "Memory (MB)",
-        "CPU (%)",
-        "Average Latency (s)",
-        "Error Rate (%)"
-    ]
-    
-    for i, title in enumerate(ordered_titles, 1):
-        plt.subplot(5, 1, i)
-        data = queries_data[title]
-        for series in data["data"]["result"]:
-            x = [datetime.fromtimestamp(float(val[0])) for val in series["values"]]
-            y = [float(val[1]) for val in series["values"]]
-            plt.plot(x, y, label=series["metric"].get("path", series["metric"].get("instance", "N/A")))
-        plt.title(title)
-        plt.grid(True)
-        
-        if title == "Error Rate (%)":
-            plt.ylim(0, 100)
-        
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"{filename}.pdf")
-    plt.savefig(output_path, bbox_inches='tight')
+    
+    with PdfPages(output_path) as pdf:
+        for title in [
+            "Requests per second",
+            "Memory (MB)",
+            "CPU (%)",
+            "Average Latency (s)",
+            "Error Rate (%)"
+        ]:
+            # Crée une nouvelle figure pour chaque métrique
+            fig, ax = plt.subplots(figsize=(figsize[0], figsize[1]/2))
+            
+            data = queries_data[title]
+            for series in data["data"]["result"]:
+                x = [datetime.fromtimestamp(float(val[0])) for val in series["values"]]
+                y = [float(val[1]) for val in series["values"]]
+                label = series["metric"].get("path", series["metric"].get("instance", "N/A"))
+                ax.plot(x, y, label=label)
+            
+            ax.set_title(title, fontsize=14, pad=20)
+            ax.grid(True)
+            
+            if title == "Error Rate (%)":
+                ax.set_ylim(0, 100)
+            
+            # Positionne la légende en bas avec plusieurs colonnes si nécessaire
+            n_series = len(data["data"]["result"])
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+                     fancybox=True, shadow=True, ncol=min(3, n_series))
+            
+            plt.tight_layout()
+            pdf.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
+    
     print(f"PDF généré : {output_path}")
 
 if __name__ == "__main__":
