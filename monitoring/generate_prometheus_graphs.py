@@ -65,6 +65,16 @@ def plot_to_pdf(queries_data, output_dir, filename, figsize):
             
             # Positionne la légende en bas avec plusieurs colonnes si nécessaire
             n_series = len(data["data"]["result"])
+            if n_series > 0:
+                ax.legend(
+                    loc='upper center',
+                    bbox_to_anchor=(0.5, -0.2),
+                    fancybox=True,
+                    shadow=True,
+                    ncol=min(3, n_series)
+                )
+            else:
+                print(f"⚠️  Aucune donnée à afficher pour : {title}")
             ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
                      fancybox=True, shadow=True, ncol=min(3, n_series))
             

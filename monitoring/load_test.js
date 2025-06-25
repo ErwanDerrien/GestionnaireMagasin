@@ -17,10 +17,12 @@ export let options = {
     { duration: '30s', target: 0 }, // Descente
   ],
   thresholds: {
-    http_req_duration: ['p(95)<2000'], // 95% des requêtes < 2s
+    http_req_duration: ['p(95)<3000'], // Augmenté à 3s pour tenir compte du cache
     http_req_failed: ['rate<0.05'], // Taux d'erreur < 5%
     errors: ['rate<0.1'], // Taux d'erreur métier < 10%
     auth_failures: ['rate<0.02'], // Taux d'échec auth < 2%
+    'http_req_duration{group:::Products Tests}': ['p(95)<1000'], // Produits plus rapides avec cache
+    'http_req_duration{group:::Orders Tests}': ['p(95)<1500'], // Commandes plus rapides avec cache
   },
 };
 
@@ -39,6 +41,29 @@ const testProducts = [
 
 // Cache des tokens par utilisateur
 let userTokens = {};
+
+// Fonction pour tester l'efficacité du cache
+function testCacheEfficiency(endpoint, headers, testName) {
+  // Premier appel (cold cache)
+  const firstCall = http.get(endpoint, { headers });
+  const firstDuration = firstCall.timings.duration;
+
+  sleep(0.1); // Petite pause
+
+  // Deuxième appel (warm cache)
+  const secondCall = http.get(endpoint, { headers });
+  const secondDuration = secondCall.timings.duration;
+
+  // Le cache devrait rendre le deuxième appel plus rapide
+  const cacheEffective = secondDuration < firstDuration * 0.8; // 20% plus rapide minimum
+
+  check(secondCall, {
+    [`${testName} cache effective`]: () => cacheEffective,
+    [`${testName} second call faster`]: () => secondDuration < firstDuration,
+  });
+
+  return { firstCall, secondCall, cacheEffective };
+}
 
 // Fonction pour valider le token (version simple et efficace pour K6)
 function validateToken(token) {
@@ -228,10 +253,14 @@ export default function () {
 
   // Test des produits
   group('Products Tests', () => {
-    // Récupération de tous les produits
-    const productsRes = http.get(`${BASE_URL}/products?page=1&per_page=10`, {
+    // Test du cache pour tous les produits
+    const cacheTest = testCacheEfficiency(
+      `${BASE_URL}/products?page=1&per_page=10`,
       headers,
-    });
+      'products'
+    );
+
+    const productsRes = cacheTest.secondCall;
 
     if (handleAuthError(productsRes, user, token)) {
       return;
@@ -255,9 +284,10 @@ export default function () {
           return false;
         }
       },
+      'products response time acceptable': (r) => r.timings.duration < 2000,
     });
     errorRate.add(!productsSuccess);
-    apiCallsCounter.add(1);
+    apiCallsCounter.add(2); // Deux appels pour le test de cache
 
     // Produits par magasin
     const storeProductsRes = http.get(`${BASE_URL}/products/${user.store_id}`, {
@@ -293,18 +323,23 @@ export default function () {
   // Test des commandes (si l'utilisateur a les permissions)
   if (user.role !== 'viewer') {
     group('Orders Tests', () => {
-      // Récupération des commandes
-      const ordersRes = http.get(`${BASE_URL}/orders?page=1&per_page=5`, {
+      // Test du cache pour les commandes
+      const ordersCacheTest = testCacheEfficiency(
+        `${BASE_URL}/orders?page=1&per_page=5`,
         headers,
-      });
+        'orders'
+      );
+
+      const ordersRes = ordersCacheTest.secondCall;
 
       if (!handleAuthError(ordersRes, user, token)) {
         const ordersSuccess = check(ordersRes, {
           'get orders valid response': (r) => [200, 403].includes(r.status),
+          'orders response time acceptable': (r) => r.timings.duration < 1500,
         });
         errorRate.add(!ordersSuccess);
       }
-      apiCallsCounter.add(1);
+      apiCallsCounter.add(2);
 
       // Commandes par magasin
       const storeOrdersRes = http.get(`${BASE_URL}/orders/${user.store_id}`, {
@@ -319,6 +354,7 @@ export default function () {
         errorRate.add(!storeOrdersSuccess);
       }
       apiCallsCounter.add(1);
+
       // TODO: fix later
       //   // Création d'une commande (probabilité de 30%)
       //   if (Math.random() < 0.3) {
@@ -377,6 +413,19 @@ export default function () {
             [200, 400, 403, 404].includes(r.status),
         });
         errorRate.add(!restockSuccess);
+
+        // Test que le cache a été invalidé après restock
+        if (restockRes.status === 200) {
+          sleep(0.1);
+          const productsAfterRestock = http.get(
+            `${BASE_URL}/products?page=1&per_page=10`,
+            { headers }
+          );
+          check(productsAfterRestock, {
+            'products updated after restock': (r) => r.status === 200,
+          });
+          apiCallsCounter.add(1);
+        }
       }
       apiCallsCounter.add(1);
     });

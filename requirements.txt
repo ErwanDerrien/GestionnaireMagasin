@@ -1,8 +1,23 @@
+# Database
 sqlalchemy
+
+# Tests
 pylint
 pytest
+
+# Sever
 flask
+
+#Documentation
 typing
 flasgger
+
+# Security
 PyJWT
+
+# Monitoring
 prometheus_flask_exporter
+
+# Cache
+redis>=4.0.0
+flask-caching>=2.0.0

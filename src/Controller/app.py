@@ -3,12 +3,17 @@ from sqlalchemy.exc import SQLAlchemyError
 from flasgger import Swagger, swag_from
 from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_client import generate_latest, PROCESS_COLLECTOR
+from flask_caching import Cache
 from datetime import timedelta
 from data.database import reset_database
 from src.services.product_services import restock_store_products, search_product_service, stock_status
 from src.services.order_services import orders_status, save_order, return_order, generate_orders_report
 from src.services.login_services import login
 from src.security import generate_jwt, role_required, build_error_response, build_cors_preflight_response, cors_response
+import json
+import hashlib
+import redis
+
 
 app = Flask(__name__)
 
@@ -21,8 +26,42 @@ app.config['SWAGGER'] = {
     'description': 'API pour la gestion de magasins et produits',
     'specs_route': '/apidocs/'
 }
+
+# Configuration Redis Cache
+app.config['CACHE_TYPE'] = 'RedisCache'
+app.config['CACHE_REDIS_HOST'] = 'localhost'
+app.config['CACHE_REDIS_PORT'] = 6379
+app.config['CACHE_REDIS_DB'] = 0
+app.config['CACHE_REDIS_PASSWORD'] = None  # Ajoutez votre mot de passe Redis si nécessaire
+app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes par défaut
+
+# Initialisation du cache
+cache = Cache(app)
+
 swagger = Swagger(app)
 
+def generate_cache_key(prefix, **kwargs):
+    """Génère une clé de cache unique basée sur les paramètres"""
+    key_data = json.dumps(kwargs, sort_keys=True)
+    key_hash = hashlib.md5(key_data.encode()).hexdigest()
+    return f"{prefix}:{key_hash}"
+
+def invalidate_cache_pattern(pattern):
+    """Invalide les clés de cache correspondant à un pattern"""
+    try:
+        redis_client = redis.Redis(
+            host=app.config['CACHE_REDIS_HOST'],
+            port=app.config['CACHE_REDIS_PORT'],
+            db=app.config['CACHE_REDIS_DB'],
+            password=app.config['CACHE_REDIS_PASSWORD']
+        )
+        keys = redis_client.keys(pattern)
+        if keys:
+            redis_client.delete(*keys)
+            print(f"Cache invalidé pour le pattern: {pattern}, {len(keys)} clés supprimées")
+    except Exception as e:
+        print(f"Erreur lors de l'invalidation du cache: {str(e)}")
+        
 # Prometheus config
 # PROCESS_COLLECTOR.register()
 metrics = PrometheusMetrics(app, path='/test')
@@ -36,6 +75,7 @@ def custom_metrics():
 import os
 
 instance_num = os.getenv('INSTANCE_NUM', 'standalone')
+
 
 @app.route('/instance-info')
 def instance_info():
@@ -205,13 +245,26 @@ def get_all_products_route():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
         
+        # Générer la clé de cache
+        cache_key = generate_cache_key("all_products", page=page, per_page=per_page)
+        
+        # Vérifier le cache
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return cors_response(cached_result, 200)
+        
         products_data, pagination = stock_status(page=page, per_page=per_page)
         
-        return cors_response({
+        response_data = {
             "status": "success",
             "data": products_data,
             "pagination": pagination
-        }, 200)
+        }
+        
+        # Mettre en cache (5 minutes)
+        cache.set(cache_key, response_data, timeout=300)
+        
+        return cors_response(response_data, 200)
         
     except Exception as e:
         error = build_error_response(
@@ -427,7 +480,11 @@ def create_order_route():
         result = save_order(data)
 
         if result.get("status") == "success":
-            return cors_response({
+            # Invalider le cache des commandes et produits
+            invalidate_cache_pattern("all_orders:*")
+            invalidate_cache_pattern("all_products:*")
+            
+            return cors_response({  
                 "status": "success",
                 "message": result.get("message", "Commande enregistrée"),
                 "order": {
@@ -521,6 +578,10 @@ def return_order_route(order_id):
             )
             return cors_response(error, status_code)
 
+        # Invalider le cache après retour de commande
+        invalidate_cache_pattern("all_orders:*")
+        invalidate_cache_pattern("all_products:*")
+
         return cors_response({
             "status": "success",
             "message": result,
@@ -608,13 +669,26 @@ def get_all_orders_status():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
 
+        # Générer la clé de cache
+        cache_key = generate_cache_key("all_orders", page=page, per_page=per_page)
+        
+        # Vérifier le cache
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return cors_response(cached_result, 200)
+
         orders_data, pagination = orders_status(page=page, per_page=per_page)
 
-        return cors_response({
+        response_data = {
             "status": "success",
             "data": orders_data,
             "pagination": pagination
-        }, 200)
+        }
+        
+        # Mettre en cache (2 minutes pour les commandes)
+        cache.set(cache_key, response_data, timeout=120)
+
+        return cors_response(response_data, 200)
 
     except Exception as e:
         error = build_error_response(
@@ -828,7 +902,12 @@ def restock_store_route(store_id):
     try:
         success = restock_store_products(store_id)
 
-        if not success:
+        # Invalider le cache des produits après restock
+        if success:
+            invalidate_cache_pattern("all_products:*")
+            invalidate_cache_pattern(f"store_products_{store_id}:*")
+
+        if not success: 
             error = build_error_response(
                 400,
                 "Bad Request",

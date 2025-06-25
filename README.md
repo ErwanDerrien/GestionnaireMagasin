@@ -16,7 +16,7 @@
 
 - `cd ./docker; docker compose down && docker compose build --no-cache && docker compose up`
 - `cd ./docker; ./deploy.sh --instances 5 --config least_conn`
-- 
+  
 ## Lire la documentation de l'API (une fois le serveur démarré)
 
 - Aller sur un navigateur à `http://localhost:8080/apidocs/`
@@ -48,11 +48,11 @@ Options:
   -h, --help     Afficher cette aide
 
 Exemples:
-  ./monitoring/automate_load_tests.sh --repo "after_round_robin" --filename "round_robin" --vus 15
+  ./monitoring/automate_load_tests.sh --repo "after_round_robin" --filename "round_robin" --vus 15 --duration 2
   ./monitoring/automate_load_tests.sh --repo "current_data" --filename "last_30min" --skip-tests
 
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con_vus_50"` --vus 50
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con_500"` --vus 500
+`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"` --vus 50
+`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"` --vus 500
 
 `./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"`
 `./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --skip-tests`
