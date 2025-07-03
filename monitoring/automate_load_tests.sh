@@ -127,14 +127,14 @@ pip install --quiet matplotlib python-dateutil requests
 log_message "📊 Exécution du script de génération de rapport..."
 python ./monitoring/generate_prometheus_graphs.py \
     --repo "$REPO" \
-    --filename "$FILENAME-$VUS-vus" \
+    --filename "$FILENAME" \
     --start "$START_TIME" \
     --end "$END_TIME"
 
 deactivate
 rm -rf $TEMP_VENV
 
-PDF_PATH="documentation/monitoring/$REPO/$FILENAME-$VUS-vus.pdf"
+PDF_PATH="documentation/monitoring/$REPO/$FILENAME.pdf"
 if [[ -f "$PDF_PATH" ]]; then
     log_message "✅ PDF généré avec succès: $PDF_PATH"
 else

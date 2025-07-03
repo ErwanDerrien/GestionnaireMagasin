@@ -15,7 +15,7 @@
 ## Lancer le serveur Flask pour le backend (Docker doit être installé)
 
 - `cd ./docker; docker compose down && docker compose build --no-cache && docker compose up`
-- `cd ./docker; ./deploy.sh --instances 5 --config least_conn`
+- `cd ./docker; colima start; ./deploy.sh --instances 5 --config least_conn`
   
 ## Lire la documentation de l'API (une fois le serveur démarré)
 
@@ -51,6 +51,9 @@ Exemples:
   ./monitoring/automate_load_tests.sh --repo "after_round_robin" --filename "round_robin" --vus 15 --duration 2
   ./monitoring/automate_load_tests.sh --repo "current_data" --filename "last_30min" --skip-tests
 
+ `./monitoring/run_all_load_tests.sh`
+
+`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --vus 15` 
 `./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"` --vus 50
 `./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"` --vus 500
 
@@ -63,6 +66,9 @@ Exemples:
 -V urlcolor=blue \
 -V geometry:margin=2cm \
 -V fontsize=12pt`
+
+`(cd ./Rapport && pandoc "RapportEtudeDeCas.md" -o "../ErwanDerrien-RapportEtudeDeCas.pdf" \
+--resource-path=".:../out")`
 
 ## Monitoring
 
