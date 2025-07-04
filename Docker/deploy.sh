@@ -8,6 +8,7 @@ DOCKER_COMPOSE_FILE="docker-compose.yml"
 PROMETHEUS_CONFIG="./prometheus.yml"
 NGINX_CONFIG="./nginx.conf"
 NGINX_UPSTREAM_CONFIG="least_conn"
+REDIS_PASSWORD=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -18,6 +19,10 @@ while [[ $# -gt 0 ]]; do
         --no-cache)
             NO_CACHE="--no-cache"
             shift
+            ;;
+        --redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
             ;;
         --config)
             case $2 in
@@ -41,16 +46,17 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -h|--help)
-            echo "Usage: $0 [--instances N] [--no-cache] [--config CONFIG]"
+            echo "Usage: $0 [--instances N] [--no-cache] [--config CONFIG] [--redis-password PASSWORD]"
             echo ""
             echo "Options:"
-            echo "  --instances N     Nombre d'instances (défaut: 3)"
-            echo "  --no-cache        Build sans cache Docker"
-            echo "  --config CONFIG   Configuration nginx:"
-            echo "                      round_robin|rr    - Round Robin (défaut)"
-            echo "                      least_conn|lc     - Least Connections"
-            echo "                      ip_hash|hash      - IP Hash"
-            echo "                      weighted|w        - Weighted Round Robin"
+            echo "  --instances N         Nombre d'instances (défaut: 3)"
+            echo "  --no-cache           Build sans cache Docker"
+            echo "  --redis-password PWD Mot de passe Redis (optionnel)"
+            echo "  --config CONFIG      Configuration nginx:"
+            echo "                         round_robin|rr    - Round Robin"
+            echo "                         least_conn|lc     - Least Connections (défaut)"
+            echo "                         ip_hash|hash      - IP Hash"
+            echo "                         weighted|w        - Weighted Round Robin"
             exit 0
             ;;
         *)
@@ -161,6 +167,13 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
+
+    # Endpoint pour vérifier le cache Redis
+    location /cache-status {
+        proxy_pass http://store_manager_1:8080/cache-status;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 }
 EOF
 }
@@ -172,13 +185,38 @@ log_message "📝 Génération du docker-compose.yml"
 generate_docker_compose() {
     local file="$1"
     local instances="$2"
+    local redis_password="$3"
 
     cat > "$file" << EOF
 version: '3.8'
 
 services:
+  # Service Redis pour le cache partagé
+  redis:
+    image: redis:7-alpine
+    container_name: redis-store
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - monitoring_net
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
 EOF
 
+    if [ -n "$redis_password" ]; then
+        echo "      --requirepass $redis_password" >> "$file"
+    fi
+
+    echo "" >> "$file"
+
+    # Générer les services store_manager
     for i in $(seq 1 $instances); do
         cat >> "$file" << EOF
   store_manager_$i:
@@ -191,11 +229,23 @@ EOF
     environment:
       - INSTANCE_NUM=$i
       - PROMETHEUS_METRICS_PORT=8080
+      - REDIS_HOST=redis-store
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - JWT_EXPIRATION_DELTA=45
+EOF
+        if [ -n "$redis_password" ]; then
+            echo "      - REDIS_PASSWORD=$redis_password" >> "$file"
+        fi
+        cat >> "$file" << EOF
     ports:
       - "$((8080 + i)):8080"
     networks:
       - monitoring_net
     container_name: store_manager_$i
+    depends_on:
+      - redis
+    restart: unless-stopped
 
 EOF
     done
@@ -218,6 +268,7 @@ EOF
     networks:
       - monitoring_net
     container_name: nginx
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
@@ -225,15 +276,18 @@ EOF
       - '9091:9090'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--log.level=debug'
+      - '--log.level=info'
+      - '--web.enable-lifecycle'
     networks:
       - monitoring_net
     container_name: prometheus
+    restart: unless-stopped
     depends_on:
 EOF
 
@@ -243,16 +297,38 @@ EOF
 
     cat >> "$file" << 'EOF'
 
+  # Service pour monitoring Redis (optionnel)
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis-store:6379
+EOF
+    if [ -n "$redis_password" ]; then
+        echo "      - REDIS_PASSWORD=$redis_password" >> "$file"
+    fi
+    cat >> "$file" << 'EOF'
+    networks:
+      - monitoring_net
+    depends_on:
+      - redis
+    restart: unless-stopped
+
 networks:
   monitoring_net:
     driver: bridge
 
 volumes:
-  grafana_data:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
 EOF
 }
 
-generate_docker_compose "$DOCKER_COMPOSE_FILE" "$INSTANCES"
+generate_docker_compose "$DOCKER_COMPOSE_FILE" "$INSTANCES" "$REDIS_PASSWORD"
 
 log_message "📝 Génération du prometheus.yml"
 
@@ -274,11 +350,18 @@ done
 cat > "$PROMETHEUS_CONFIG" << EOF
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
   - job_name: 'store_managers'
     static_configs:
       - targets: [$PROMETHEUS_TARGETS]
+    scrape_interval: 15s
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
 EOF
 
 log_message "✅ Fichiers de configuration générés"
@@ -297,7 +380,11 @@ else
 fi
 
 log_message "🛑 Arrêt des conteneurs existants"
-docker compose down || true
+docker compose down --volumes || true
+
+# Nettoyer les anciens conteneurs Redis s'ils existent
+log_message "🧹 Nettoyage des anciens conteneurs Redis"
+docker rm -f $(docker ps -aq --filter "name=redis") 2>/dev/null || true
 
 if [ -n "$NO_CACHE" ]; then
     log_message "🔨 Build des images (sans cache)"
@@ -307,22 +394,69 @@ else
     docker compose build
 fi
 
+log_message "🔎 Vérification si le port 6379 est déjà utilisé sur l'hôte"
+
+if lsof -i :6379 &>/dev/null; then
+    log_message "❌ Le port 6379 est déjà utilisé sur l'hôte. Tentative de libération..."
+    # Vérifie si c'est Docker
+    REDIS_CONTAINER=$(docker ps --filter "ancestor=redis" --format "{{.ID}}")
+    if [ -n "$REDIS_CONTAINER" ]; then
+        log_message "🔧 Suppression du conteneur Redis existant ($REDIS_CONTAINER)"
+        docker rm -f "$REDIS_CONTAINER"
+    else
+        log_message "⚠️  Le port 6379 est occupé par un processus hors Docker."
+        echo "👉 Tu peux identifier ce processus avec : sudo lsof -i :6379"
+        echo "   Et le tuer avec : sudo kill -9 <PID>"
+        exit 1
+    fi
+else
+    log_message "✅ Le port 6379 est libre"
+fi
+
 log_message "🚀 Démarrage des services"
 docker compose up -d
 
 log_message "⏳ Vérification du démarrage des services..."
-sleep 5
+sleep 10
 
 log_message "📊 État des conteneurs:"
 docker compose ps
+
+# Vérifier la connectivité Redis
+log_message "🔍 Test de connectivité Redis"
+if docker exec redis-store redis-cli ping > /dev/null 2>&1; then
+    log_message "✅ Redis est accessible"
+else
+    log_message "❌ Erreur de connectivité Redis"
+fi
+
+# Vérifier les logs pour les erreurs Redis
+log_message "🔍 Vérification des logs d'erreur Redis"
+for i in $(seq 1 $INSTANCES); do
+    if docker logs "store_manager_$i" 2>&1 | grep -q "redis\|Redis\|cache" | head -3; then
+        log_message "📋 Logs Redis pour store_manager_$i:"
+        docker logs "store_manager_$i" 2>&1 | grep -i "redis\|cache" | head -3
+    fi
+done
 
 log_message "✅ Déploiement terminé!"
 echo ""
 echo "🌐 Services disponibles:"
 echo "   • Application (Load Balancer): http://localhost"
 echo "   • Prometheus: http://localhost:9091"
+echo "   • Redis: localhost:6379"
+echo "   • Redis Exporter: http://localhost:9121"
 echo ""
 echo "🔧 Instances store_manager:"
 for i in $(seq 1 $INSTANCES); do
     echo "   • store_manager_$i: http://localhost:$((8080 + i))"
 done
+echo ""
+echo "📊 Monitoring:"
+echo "   • Métriques Redis: http://localhost:9121/metrics"
+echo "   • État cache: http://localhost/cache-status"
+echo ""
+echo "🔧 Commandes utiles:"
+echo "   • Logs Redis: docker logs redis-store"
+echo "   • CLI Redis: docker exec -it redis-store redis-cli"
+echo "   • Statut cache: docker exec redis-store redis-cli info memory"

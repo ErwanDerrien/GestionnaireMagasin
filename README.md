@@ -72,6 +72,9 @@ Exemples:
 
 ## Monitoring
 
+Exécuter les tests d'endpoints avec k6
+`k6 run --vus 10 --duration 1m monitoring/load_test.js`
+
 Visualiser sur Prometheus :
 
 Mode durée relative :
@@ -102,3 +105,10 @@ Pour mémoire
 - `sum by(instance) (process_resident_memory_bytes / 1024 / 1024)`
 Pour CPU
 - `sum by(instance) (rate(process_cpu_seconds_total[15m]) * 100)`
+
+
+## Utilisation de variables globales dans le projet
+sh `source config-loader.sh
+echo $API_BASE_URL`
+js `const { API_BASE_URL, API_BASE_PATH, API_VERSION, API_BASE_PORT } = require('./config-loader');`
+py `from config_loader import API_BASE_URL, API_BASE_PATH, API_VERSION, API_BASE_PORT,

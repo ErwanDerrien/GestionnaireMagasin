@@ -29,7 +29,7 @@ app.config['SWAGGER'] = {
 
 # Configuration Redis Cache
 app.config['CACHE_TYPE'] = 'RedisCache'
-app.config['CACHE_REDIS_HOST'] = 'localhost'
+app.config['CACHE_REDIS_HOST'] = 'redis'
 app.config['CACHE_REDIS_PORT'] = 6379
 app.config['CACHE_REDIS_DB'] = 0
 app.config['CACHE_REDIS_PASSWORD'] = None  # Ajoutez votre mot de passe Redis si nécessaire
@@ -55,7 +55,7 @@ def invalidate_cache_pattern(pattern):
             db=app.config['CACHE_REDIS_DB'],
             password=app.config['CACHE_REDIS_PASSWORD']
         )
-        keys = redis_client.keys(pattern)
+        keys = list(redis_client.scan_iter(pattern))
         if keys:
             redis_client.delete(*keys)
             print(f"Cache invalidé pour le pattern: {pattern}, {len(keys)} clés supprimées")
@@ -251,7 +251,7 @@ def get_all_products_route():
         # Vérifier le cache
         cached_result = cache.get(cache_key)
         if cached_result:
-            return cors_response(cached_result, 200)
+            return cors_response(jsonify(cached_result), 200)
         
         products_data, pagination = stock_status(page=page, per_page=per_page)
         
@@ -302,8 +302,12 @@ def get_all_products_of_store_route(store_id):
         return build_cors_preflight_response()
         
     try:
+        cache_key = generate_cache_key(f"store_products_{store_id}")
+        cached = cache.get(cache_key)
+        if cached:
+            return cors_response(jsonify(cached), 200)
+
         products_data = stock_status(store_id)
-        
         if not products_data:
             error = build_error_response(
                 404,
@@ -312,13 +316,15 @@ def get_all_products_of_store_route(store_id):
                 request.path
             )
             return cors_response(error, 404)
-        
-        return cors_response({
+
+        response_data = {
             "status": "success",
             "data": products_data,
             "count": len(products_data)
-        }, 200)
-        
+        }
+        cache.set(cache_key, response_data, timeout=300)
+        return cors_response(jsonify(response_data), 200)
+
     except Exception as e:
         error = build_error_response(
             500,
@@ -675,7 +681,8 @@ def get_all_orders_status():
         # Vérifier le cache
         cached_result = cache.get(cache_key)
         if cached_result:
-            return cors_response(cached_result, 200)
+            return cors_response(jsonify(cached_result), 200)
+
 
         orders_data, pagination = orders_status(page=page, per_page=per_page)
 
