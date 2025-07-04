@@ -265,7 +265,7 @@ def get_all_products_route():
         cache.set(cache_key, response_data, timeout=300)
         
         return cors_response(response_data, 200)
-        
+
     except Exception as e:
         error = build_error_response(
             500,
@@ -274,7 +274,7 @@ def get_all_products_route():
             request.path
         )
         return cors_response(error, 500)
-
+        
 @app.route("/api/v2/products/<int:store_id>", methods=["GET", "OPTIONS"])
 @role_required('get_all_products_of_store')
 @swag_from({
@@ -403,6 +403,14 @@ def search_product_route(store_id, search_term):
         if per_page < 1 or per_page > 100:  # Limite maximale pour éviter les surcharges
             per_page = 10
 
+        # Générer la clé de cache
+        cache_key = generate_cache_key("product_search", store_id=store_id, search_term=search_term, page=page, per_page=per_page)
+        
+        # Vérifier le cache
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return cors_response(jsonify(cached_result), 200)
+
         products, pagination_info = search_product_service(search_term, store_id, page, per_page)
         
         response_data = {
@@ -411,6 +419,9 @@ def search_product_route(store_id, search_term):
             "pagination": pagination_info,
             "message": "Aucun produit trouvé" if not products else None
         }
+        
+        # Mettre en cache (2 minutes)
+        cache.set(cache_key, response_data, timeout=120)
         
         return cors_response(response_data, 200)
     
@@ -489,6 +500,7 @@ def create_order_route():
             # Invalider le cache des commandes et produits
             invalidate_cache_pattern("all_orders:*")
             invalidate_cache_pattern("all_products:*")
+            invalidate_cache_pattern(f"store_products_{data['store_id']}:*")
             
             return cors_response({  
                 "status": "success",
@@ -671,6 +683,9 @@ def return_order_route(order_id):
     }
 })
 def get_all_orders_status():
+    if request.method == "OPTIONS":
+        return build_cors_preflight_response()
+        
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
@@ -682,7 +697,6 @@ def get_all_orders_status():
         cached_result = cache.get(cache_key)
         if cached_result:
             return cors_response(jsonify(cached_result), 200)
-
 
         orders_data, pagination = orders_status(page=page, per_page=per_page)
 
@@ -732,6 +746,14 @@ def get_store_orders(store_id):
         return build_cors_preflight_response()
 
     try:
+        # Générer la clé de cache
+        cache_key = generate_cache_key(f"store_orders_{store_id}")
+        
+        # Vérifier le cache
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return cors_response(jsonify(cached_result), 200)
+
         orders_data = orders_status(store_id=store_id)
 
         if not orders_data:
@@ -743,11 +765,16 @@ def get_store_orders(store_id):
             )
             return cors_response(error, 404)
 
-        return cors_response({
+        response_data = {
             "status": "success",
             "data": orders_data,
             "count": len(orders_data)
-        }, 200)
+        }
+        
+        # Mettre en cache (2 minutes)
+        cache.set(cache_key, response_data, timeout=120)
+
+        return cors_response(response_data, 200)
 
     except Exception as e:
         error = build_error_response(
@@ -778,6 +805,9 @@ def reset_database_route():
         success = reset_database()
         
         if success:
+            # Invalider tout le cache après réinitialisation
+            invalidate_cache_pattern("*")
+            
             return cors_response({
                 "status": "success",
                 "message": "La base de données a été réinitialisée avec succès"
@@ -823,6 +853,14 @@ def reset_database_route():
 })
 def get_orders_report():
     try:
+        # Générer la clé de cache
+        cache_key = "orders_report"
+        
+        # Vérifier le cache
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return cors_response(jsonify(cached_result), 200)
+
         report_data = generate_orders_report()
         
         if not report_data:
@@ -860,6 +898,9 @@ def get_orders_report():
                 "detailed_report": report
             }
         }
+        
+        # Mettre en cache (5 minutes)
+        cache.set(cache_key, response, timeout=300)
         
         return cors_response(response, 200)
         

@@ -101,15 +101,23 @@ def plot_to_pdf(queries_data, output_dir, filename, figsize):
             "Average Latency (s)",
             "Error Rate (%)"
         ]:
-            # Crée une nouvelle figure pour chaque métrique
             fig, ax = plt.subplots(figsize=(figsize[0], figsize[1]/2))
             
             data = queries_data[title]
-            for series in data["data"]["result"]:
+            
+            # Cas spécial pour Error Rate (%) quand pas de données
+            if title == "Error Rate (%)" and not data["data"]["result"]:
                 x = [datetime.fromtimestamp(float(val[0])) for val in series["values"]]
-                y = [float(val[1]) for val in series["values"]]
-                label = series["metric"].get("path", series["metric"].get("instance", "N/A"))
-                ax.plot(x, y, label=label)
+                y = [0] * len(x)  # Ligne à 0%
+                ax.plot(x, y, color='green', label='0% error rate')
+                ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+                         fancybox=True, shadow=True)
+            else:
+                for series in data["data"]["result"]:
+                    x = [datetime.fromtimestamp(float(val[0])) for val in series["values"]]
+                    y = [float(val[1]) for val in series["values"]]
+                    label = series["metric"].get("path", series["metric"].get("instance", "N/A"))
+                    ax.plot(x, y, label=label)
             
             ax.set_title(title, fontsize=14, pad=20)
             ax.grid(True)
@@ -117,7 +125,7 @@ def plot_to_pdf(queries_data, output_dir, filename, figsize):
             if title == "Error Rate (%)":
                 ax.set_ylim(0, 100)
             
-            # Positionne la légende en bas avec plusieurs colonnes si nécessaire
+            # Gestion de la légende
             n_series = len(data["data"]["result"])
             if n_series > 0:
                 ax.legend(
@@ -127,10 +135,6 @@ def plot_to_pdf(queries_data, output_dir, filename, figsize):
                     shadow=True,
                     ncol=min(3, n_series)
                 )
-            else:
-                print(f"⚠️  Aucune donnée à afficher pour : {title}")
-            ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
-                     fancybox=True, shadow=True, ncol=min(3, n_series))
             
             plt.tight_layout()
             pdf.savefig(fig, bbox_inches='tight')
