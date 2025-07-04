@@ -11,133 +11,156 @@ NGINX_UPSTREAM_CONFIG="least_conn"
 REDIS_PASSWORD=""
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        --instances)
-            INSTANCES="$2"
-            shift 2
-            ;;
-        --no-cache)
-            NO_CACHE="--no-cache"
-            shift
-            ;;
-        --redis-password)
-            REDIS_PASSWORD="$2"
-            shift 2
-            ;;
-        --config)
-            case $2 in
-                round_robin|rr)
-                    NGINX_UPSTREAM_CONFIG="round_robin"
-                    ;;
-                least_conn|lc)
-                    NGINX_UPSTREAM_CONFIG="least_conn"
-                    ;;
-                ip_hash|hash)
-                    NGINX_UPSTREAM_CONFIG="ip_hash"
-                    ;;
-                weighted|w)
-                    NGINX_UPSTREAM_CONFIG="weighted"
-                    ;;
-                *)
-                    echo "Erreur: Configuration nginx invalide. Options: round_robin|rr, least_conn|lc, ip_hash|hash, weighted|w"
-                    exit 1
-                    ;;
-            esac
-            shift 2
-            ;;
-        -h|--help)
-            echo "Usage: $0 [--instances N] [--no-cache] [--config CONFIG] [--redis-password PASSWORD]"
-            echo ""
-            echo "Options:"
-            echo "  --instances N         Nombre d'instances (défaut: 3)"
-            echo "  --no-cache           Build sans cache Docker"
-            echo "  --redis-password PWD Mot de passe Redis (optionnel)"
-            echo "  --config CONFIG      Configuration nginx:"
-            echo "                         round_robin|rr    - Round Robin"
-            echo "                         least_conn|lc     - Least Connections (défaut)"
-            echo "                         ip_hash|hash      - IP Hash"
-            echo "                         weighted|w        - Weighted Round Robin"
-            exit 0
-            ;;
-        *)
-            echo "Argument inconnu: $1"
-            exit 1
-            ;;
+  case $1 in
+  --instances)
+    INSTANCES="$2"
+    shift 2
+    ;;
+  --no-cache)
+    NO_CACHE="--no-cache"
+    shift
+    ;;
+  --redis-password)
+    REDIS_PASSWORD="$2"
+    shift 2
+    ;;
+  --config)
+    case $2 in
+    round_robin | rr)
+      NGINX_UPSTREAM_CONFIG="round_robin"
+      ;;
+    least_conn | lc)
+      NGINX_UPSTREAM_CONFIG="least_conn"
+      ;;
+    ip_hash | hash)
+      NGINX_UPSTREAM_CONFIG="ip_hash"
+      ;;
+    weighted | w)
+      NGINX_UPSTREAM_CONFIG="weighted"
+      ;;
+    *)
+      echo "Erreur: Configuration nginx invalide. Options: round_robin|rr, least_conn|lc, ip_hash|hash, weighted|w"
+      exit 1
+      ;;
     esac
+    shift 2
+    ;;
+  -h | --help)
+    echo "Usage: $0 [--instances N] [--no-cache] [--config CONFIG] [--redis-password PASSWORD]"
+    echo ""
+    echo "Options:"
+    echo "  --instances N         Nombre d'instances (défaut: 3)"
+    echo "  --no-cache           Build sans cache Docker"
+    echo "  --redis-password PWD Mot de passe Redis (optionnel)"
+    echo "  --config CONFIG      Configuration nginx:"
+    echo "                         round_robin|rr    - Round Robin"
+    echo "                         least_conn|lc     - Least Connections (défaut)"
+    echo "                         ip_hash|hash      - IP Hash"
+    echo "                         weighted|w        - Weighted Round Robin"
+    exit 0
+    ;;
+  *)
+    echo "Argument inconnu: $1"
+    exit 1
+    ;;
+  esac
 done
 
 if ! [[ "$INSTANCES" =~ ^[1-9][0-9]*$ ]]; then
-    echo "Erreur: Le nombre d'instances doit être un entier positif"
-    exit 1
+  echo "Erreur: Le nombre d'instances doit être un entier positif"
+  exit 1
 fi
 
 log_message() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
 log_message "🚀 Déploiement avec $INSTANCES instance(s) store_manager (config: $NGINX_UPSTREAM_CONFIG)"
+
+# Nettoyage complet au début
+log_message "🧹 Nettoyage complet des conteneurs existants"
+docker compose down --volumes --remove-orphans 2>/dev/null || true
+
+# Nettoyer TOUS les conteneurs liés à Redis
+log_message "🧹 Nettoyage des conteneurs Redis"
+docker rm -f $(docker ps -aq --filter "name=redis") 2>/dev/null || true
+docker rm -f $(docker ps -aq --filter "ancestor=redis") 2>/dev/null || true
+
+# Attendre un peu pour que les ports se libèrent
+log_message "⏳ Attente de la libération des ports..."
+sleep 3
+
+# Forcer la libération du port 6379 si nécessaire
+log_message "🔧 Vérification et libération du port 6379"
+if lsof -i :6379 &>/dev/null; then
+  log_message "🔧 Libération forcée du port 6379"
+  # Tuer tous les processus utilisant le port 6379
+  sudo lsof -ti :6379 | xargs -r sudo kill -9 2>/dev/null || true
+  sleep 2
+fi
+
 log_message "📝 Génération du nginx.conf"
 
 generate_nginx_config() {
-    local file="$1"
-    local instances="$2"
-    local config_type="$3"
+  local file="$1"
+  local instances="$2"
+  local config_type="$3"
 
-    cat > "$file" << 'EOF'
+  cat >"$file" <<'EOF'
 # Configuration générée automatiquement par deploy.sh
 # Ne pas modifier manuellement
 
 EOF
 
-    # Générer les différentes configurations upstream
-    case $config_type in
-        "round_robin")
-            cat >> "$file" << EOF
+  # Générer les différentes configurations upstream
+  case $config_type in
+  "round_robin")
+    cat >>"$file" <<EOF
 # Configuration Round Robin (par défaut)
 upstream store_manager {
 EOF
-            for i in $(seq 1 $instances); do
-                echo "    server store_manager_$i:8080;" >> "$file"
-            done
-            echo "}" >> "$file"
-            ;;
-        "least_conn")
-            cat >> "$file" << EOF
+    for i in $(seq 1 $instances); do
+      echo "    server store_manager_$i:8080;" >>"$file"
+    done
+    echo "}" >>"$file"
+    ;;
+  "least_conn")
+    cat >>"$file" <<EOF
 # Configuration Least Connections
 upstream store_manager {
     least_conn;
 EOF
-            for i in $(seq 1 $instances); do
-                echo "    server store_manager_$i:8080;" >> "$file"
-            done
-            echo "}" >> "$file"
-            ;;
-        "ip_hash")
-            cat >> "$file" << EOF
+    for i in $(seq 1 $instances); do
+      echo "    server store_manager_$i:8080;" >>"$file"
+    done
+    echo "}" >>"$file"
+    ;;
+  "ip_hash")
+    cat >>"$file" <<EOF
 # Configuration IP Hash
 upstream store_manager {
     ip_hash;
 EOF
-            for i in $(seq 1 $instances); do
-                echo "    server store_manager_$i:8080;" >> "$file"
-            done
-            echo "}" >> "$file"
-            ;;
-        "weighted")
-            cat >> "$file" << EOF
+    for i in $(seq 1 $instances); do
+      echo "    server store_manager_$i:8080;" >>"$file"
+    done
+    echo "}" >>"$file"
+    ;;
+  "weighted")
+    cat >>"$file" <<EOF
 # Configuration Weighted Round Robin
 upstream store_manager {
 EOF
-            for i in $(seq 1 $instances); do
-                # Poids décroissant : premier serveur poids le plus élevé
-                local weight=$((instances - i + 1))
-                echo "    server store_manager_$i:8080 weight=$weight;" >> "$file"
-            done
-            echo "}" >> "$file"
-            ;;
-    esac
+    for i in $(seq 1 $instances); do
+      # Poids décroissant : premier serveur poids le plus élevé
+      local weight=$((instances - i + 1))
+      echo "    server store_manager_$i:8080 weight=$weight;" >>"$file"
+    done
+    echo "}" >>"$file"
+    ;;
+  esac
 
-    cat >> "$file" << 'EOF'
+  cat >>"$file" <<'EOF'
 
 server {
     listen 80;
@@ -183,11 +206,11 @@ generate_nginx_config "$NGINX_CONFIG" "$INSTANCES" "$NGINX_UPSTREAM_CONFIG"
 log_message "📝 Génération du docker-compose.yml"
 
 generate_docker_compose() {
-    local file="$1"
-    local instances="$2"
-    local redis_password="$3"
+  local file="$1"
+  local instances="$2"
+  local redis_password="$3"
 
-    cat > "$file" << EOF
+  cat >"$file" <<EOF
 version: '3.8'
 
 services:
@@ -210,15 +233,15 @@ services:
       --maxmemory-policy allkeys-lru
 EOF
 
-    if [ -n "$redis_password" ]; then
-        echo "      --requirepass $redis_password" >> "$file"
-    fi
+  if [ -n "$redis_password" ]; then
+    echo "      --requirepass $redis_password" >>"$file"
+  fi
 
-    echo "" >> "$file"
+  echo "" >>"$file"
 
-    # Générer les services store_manager
-    for i in $(seq 1 $instances); do
-        cat >> "$file" << EOF
+  # Générer les services store_manager
+  for i in $(seq 1 $instances); do
+    cat >>"$file" <<EOF
   store_manager_$i:
     build:
       context: ../
@@ -234,10 +257,10 @@ EOF
       - REDIS_DB=0
       - JWT_EXPIRATION_DELTA=45
 EOF
-        if [ -n "$redis_password" ]; then
-            echo "      - REDIS_PASSWORD=$redis_password" >> "$file"
-        fi
-        cat >> "$file" << EOF
+    if [ -n "$redis_password" ]; then
+      echo "      - REDIS_PASSWORD=$redis_password" >>"$file"
+    fi
+    cat >>"$file" <<EOF
     ports:
       - "$((8080 + i)):8080"
     networks:
@@ -248,9 +271,9 @@ EOF
     restart: unless-stopped
 
 EOF
-    done
+  done
 
-    cat >> "$file" << EOF
+  cat >>"$file" <<EOF
   nginx:
     image: nginx:alpine
     ports:
@@ -260,11 +283,11 @@ EOF
     depends_on:
 EOF
 
-    for i in $(seq 1 $instances); do
-        echo "      - store_manager_$i" >> "$file"
-    done
+  for i in $(seq 1 $instances); do
+    echo "      - store_manager_$i" >>"$file"
+  done
 
-    cat >> "$file" << 'EOF'
+  cat >>"$file" <<'EOF'
     networks:
       - monitoring_net
     container_name: nginx
@@ -291,11 +314,11 @@ EOF
     depends_on:
 EOF
 
-    for i in $(seq 1 $instances); do
-        echo "      - store_manager_$i" >> "$file"
-    done
+  for i in $(seq 1 $instances); do
+    echo "      - store_manager_$i" >>"$file"
+  done
 
-    cat >> "$file" << 'EOF'
+  cat >>"$file" <<'EOF'
 
   # Service pour monitoring Redis (optionnel)
   redis-exporter:
@@ -306,10 +329,10 @@ EOF
     environment:
       - REDIS_ADDR=redis://redis-store:6379
 EOF
-    if [ -n "$redis_password" ]; then
-        echo "      - REDIS_PASSWORD=$redis_password" >> "$file"
-    fi
-    cat >> "$file" << 'EOF'
+  if [ -n "$redis_password" ]; then
+    echo "      - REDIS_PASSWORD=$redis_password" >>"$file"
+  fi
+  cat >>"$file" <<'EOF'
     networks:
       - monitoring_net
     depends_on:
@@ -334,20 +357,20 @@ log_message "📝 Génération du prometheus.yml"
 
 # Vérifier si prometheus.yml existe comme dossier et le supprimer
 if [ -d "$PROMETHEUS_CONFIG" ]; then
-    log_message "⚠️  prometheus.yml existe comme dossier, suppression..."
-    rm -rf "$PROMETHEUS_CONFIG"
+  log_message "⚠️  prometheus.yml existe comme dossier, suppression..."
+  rm -rf "$PROMETHEUS_CONFIG"
 fi
 
 PROMETHEUS_TARGETS=""
 for i in $(seq 1 $INSTANCES); do
-    if [ "$i" -eq 1 ]; then
-        PROMETHEUS_TARGETS="'store_manager_$i:8080'"
-    else
-        PROMETHEUS_TARGETS="$PROMETHEUS_TARGETS, 'store_manager_$i:8080'"
-    fi
+  if [ "$i" -eq 1 ]; then
+    PROMETHEUS_TARGETS="'store_manager_$i:8080'"
+  else
+    PROMETHEUS_TARGETS="$PROMETHEUS_TARGETS, 'store_manager_$i:8080'"
+  fi
 done
 
-cat > "$PROMETHEUS_CONFIG" << EOF
+cat >"$PROMETHEUS_CONFIG" <<EOF
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -367,50 +390,32 @@ EOF
 log_message "✅ Fichiers de configuration générés"
 
 log_message "🔍 Validation du docker-compose.yml"
-if command -v docker-compose &> /dev/null; then
-    docker-compose -f "$DOCKER_COMPOSE_FILE" config > /dev/null && \
-    log_message "✅ docker-compose.yml valide" || \
-    { log_message "❌ Erreur dans docker-compose.yml:"; docker-compose -f "$DOCKER_COMPOSE_FILE" config; exit 1; }
-elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
-    docker compose -f "$DOCKER_COMPOSE_FILE" config > /dev/null && \
-    log_message "✅ docker-compose.yml valide" || \
-    { log_message "❌ Erreur dans docker-compose.yml:"; docker compose -f "$DOCKER_COMPOSE_FILE" config; exit 1; }
+if command -v docker-compose &>/dev/null; then
+  docker-compose -f "$DOCKER_COMPOSE_FILE" config >/dev/null &&
+    log_message "✅ docker-compose.yml valide" ||
+    {
+      log_message "❌ Erreur dans docker-compose.yml:"
+      docker-compose -f "$DOCKER_COMPOSE_FILE" config
+      exit 1
+    }
+elif command -v docker &>/dev/null && docker compose version &>/dev/null; then
+  docker compose -f "$DOCKER_COMPOSE_FILE" config >/dev/null &&
+    log_message "✅ docker-compose.yml valide" ||
+    {
+      log_message "❌ Erreur dans docker-compose.yml:"
+      docker compose -f "$DOCKER_COMPOSE_FILE" config
+      exit 1
+    }
 else
-    log_message "⚠️  Impossible de valider le YAML (docker-compose non trouvé)"
+  log_message "⚠️  Impossible de valider le YAML (docker-compose non trouvé)"
 fi
-
-log_message "🛑 Arrêt des conteneurs existants"
-docker compose down --volumes || true
-
-# Nettoyer les anciens conteneurs Redis s'ils existent
-log_message "🧹 Nettoyage des anciens conteneurs Redis"
-docker rm -f $(docker ps -aq --filter "name=redis") 2>/dev/null || true
 
 if [ -n "$NO_CACHE" ]; then
-    log_message "🔨 Build des images (sans cache)"
-    docker compose build --no-cache
+  log_message "🔨 Build des images (sans cache)"
+  docker compose build --no-cache
 else
-    log_message "🔨 Build des images"
-    docker compose build
-fi
-
-log_message "🔎 Vérification si le port 6379 est déjà utilisé sur l'hôte"
-
-if lsof -i :6379 &>/dev/null; then
-    log_message "❌ Le port 6379 est déjà utilisé sur l'hôte. Tentative de libération..."
-    # Vérifie si c'est Docker
-    REDIS_CONTAINER=$(docker ps --filter "ancestor=redis" --format "{{.ID}}")
-    if [ -n "$REDIS_CONTAINER" ]; then
-        log_message "🔧 Suppression du conteneur Redis existant ($REDIS_CONTAINER)"
-        docker rm -f "$REDIS_CONTAINER"
-    else
-        log_message "⚠️  Le port 6379 est occupé par un processus hors Docker."
-        echo "👉 Tu peux identifier ce processus avec : sudo lsof -i :6379"
-        echo "   Et le tuer avec : sudo kill -9 <PID>"
-        exit 1
-    fi
-else
-    log_message "✅ Le port 6379 est libre"
+  log_message "🔨 Build des images"
+  docker compose build
 fi
 
 log_message "🚀 Démarrage des services"
@@ -424,19 +429,21 @@ docker compose ps
 
 # Vérifier la connectivité Redis
 log_message "🔍 Test de connectivité Redis"
-if docker exec redis-store redis-cli ping > /dev/null 2>&1; then
-    log_message "✅ Redis est accessible"
+if docker exec redis-store redis-cli ping >/dev/null 2>&1; then
+  log_message "✅ Redis est accessible"
 else
-    log_message "❌ Erreur de connectivité Redis"
+  log_message "❌ Erreur de connectivité Redis"
+  log_message "📋 Logs Redis:"
+  docker logs redis-store --tail 10
 fi
 
 # Vérifier les logs pour les erreurs Redis
 log_message "🔍 Vérification des logs d'erreur Redis"
 for i in $(seq 1 $INSTANCES); do
-    if docker logs "store_manager_$i" 2>&1 | grep -q "redis\|Redis\|cache" | head -3; then
-        log_message "📋 Logs Redis pour store_manager_$i:"
-        docker logs "store_manager_$i" 2>&1 | grep -i "redis\|cache" | head -3
-    fi
+  if docker logs "store_manager_$i" 2>&1 | grep -q "redis\|Redis\|cache" | head -3; then
+    log_message "📋 Logs Redis pour store_manager_$i:"
+    docker logs "store_manager_$i" 2>&1 | grep -i "redis\|cache" | head -3
+  fi
 done
 
 log_message "✅ Déploiement terminé!"
@@ -449,7 +456,7 @@ echo "   • Redis Exporter: http://localhost:9121"
 echo ""
 echo "🔧 Instances store_manager:"
 for i in $(seq 1 $INSTANCES); do
-    echo "   • store_manager_$i: http://localhost:$((8080 + i))"
+  echo "   • store_manager_$i: http://localhost:$((8080 + i))"
 done
 echo ""
 echo "📊 Monitoring:"
