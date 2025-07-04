@@ -81,7 +81,7 @@ instance_num = os.getenv('INSTANCE_NUM', 'standalone')
 def instance_info():
     return {"instance": instance_num}, 200
 
-@app.route("/api/v1/login", methods=["POST", "OPTIONS"])
+@app.route("/api/v2/login", methods=["POST", "OPTIONS"])
 @swag_from({
     'tags': ['Authentification'],
     'description': 'Connexion utilisateur',
@@ -170,11 +170,11 @@ def login_route():
             500
         )
 
-@app.route("/api/v1/")
+@app.route("/api/v2/")
 def home():
     return {"message": "API fonctionnelle"}
 
-@app.route("/api/v1/products", methods=["GET", "OPTIONS"])
+@app.route("/api/v2/products", methods=["GET", "OPTIONS"])
 @role_required('get_all_products')
 @swag_from({
     'tags': ['Produits'],
@@ -275,7 +275,7 @@ def get_all_products_route():
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/products/<int:store_id>", methods=["GET", "OPTIONS"])
+@app.route("/api/v2/products/<int:store_id>", methods=["GET", "OPTIONS"])
 @role_required('get_all_products_of_store')
 @swag_from({
     'tags': ['Produits'],
@@ -328,7 +328,7 @@ def get_all_products_of_store_route(store_id):
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/products/<int:store_id>/<search_term>", methods=["GET", "OPTIONS"])
+@app.route("/api/v2/products/<int:store_id>/<search_term>", methods=["GET", "OPTIONS"])
 @role_required('search_product')
 @swag_from({
     'tags': ['Produits'],
@@ -417,7 +417,7 @@ def search_product_route(store_id, search_term):
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/orders", methods=["POST", "OPTIONS"])
+@app.route("/api/v2/orders", methods=["POST", "OPTIONS"])
 @role_required('save_order')
 @swag_from({
     'tags': ['Commandes'],
@@ -537,7 +537,7 @@ def create_order_route():
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
+@app.route("/api/v2/orders/<int:order_id>", methods=["PUT", "OPTIONS"])
 @role_required('return_order')
 @swag_from({
     'tags': ['Commandes'],
@@ -597,7 +597,7 @@ def return_order_route(order_id):
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/orders", methods=["GET", "OPTIONS"])
+@app.route("/api/v2/orders", methods=["GET", "OPTIONS"])
 @role_required('get_all_orders')
 @swag_from({
     'tags': ['Commandes'],
@@ -699,7 +699,7 @@ def get_all_orders_status():
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/orders/<int:store_id>", methods=["GET"])
+@app.route("/api/v2/orders/<int:store_id>", methods=["GET"])
 @role_required('get_all_orders_of_store')
 @swag_from({
     'tags': ['Commandes'],
@@ -751,7 +751,7 @@ def get_store_orders(store_id):
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/reset", methods=["POST", "OPTIONS"])
+@app.route("/api/v2/reset", methods=["POST", "OPTIONS"])
 # @role_required('reset_database')
 @swag_from({
     'tags': ['Administration'],
@@ -802,7 +802,7 @@ def reset_database_route():
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/orders/report", methods=["GET"])
+@app.route("/api/v2/orders/report", methods=["GET"])
 @role_required('get_orders_report')
 @swag_from({
     'tags': ['Rapports'],
@@ -873,7 +873,7 @@ def get_orders_report():
         )
         return cors_response(error, 500)
 
-@app.route("/api/v1/products/store/<int:store_id>/restock", methods=["PUT", "OPTIONS"])
+@app.route("/api/v2/products/store/<int:store_id>/restock", methods=["PUT", "OPTIONS"])
 @role_required('restock_store')
 @swag_from({
     'tags': ['Produits'],

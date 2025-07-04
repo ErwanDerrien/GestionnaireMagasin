@@ -41,7 +41,7 @@ force_cleanup() {
 # Configuration des tests
 CONFIGS=("rr" "lc" "hash" "w")
 INSTANCES_LIST=(1 5 10 15)
-VUS_LIST=(1)
+VUS_LIST=(1 10 50)
 DURATIONS=(1)
 REPO="load_tests"
 

@@ -24,16 +24,70 @@ def parse_time(time_str):
         return dateutil.parser.parse(time_str)
 
 def fetch_prometheus_data(query, start_time, end_time, step):
-    response = requests.get(
-        f"{PROMETHEUS_URL}/api/v1/query_range",
-        params={
+    try:
+        # Formatage correct pour l'API v2 (ISO 8601 avec timezone)
+        params = {
             "query": query,
-            "start": start_time.timestamp(),
-            "end": end_time.timestamp(),
+            "start": start_time.astimezone().isoformat(),  # Format ISO 8601
+            "end": end_time.astimezone().isoformat(),
             "step": step,
-        },
-    )
-    return response.json()
+        }
+
+        # Debug: Afficher l'URL appelée
+        print(f"🔍 Requête envoyée à Prometheus v1: {params}")
+
+        response = requests.get(
+            f"{PROMETHEUS_URL}/api/v1/query_range",
+            params=params,
+            timeout=10
+        )
+
+        # Debug: Afficher le code de statut
+        print(f"📡 Code de réponse: {response.status_code}")
+
+        response.raise_for_status()
+        data = response.json()
+
+        # Debug: Afficher un extrait de la réponse
+        print(f"📦 Réponse reçue (extrait): {str(data)[:200]}...")
+
+        # Conversion du format v2 vers le format v1 attendu par le reste du code
+        converted_data = {
+            "status": "success",
+            "data": {
+                "resultType": "matrix",
+                "result": []
+            }
+        }
+
+        for series in data.get("data", {}).get("result", []):
+            try:
+                values = [
+                    [float(ts), str(value)] 
+                    for ts, value in series.get("values", [])
+                ]
+                converted_data["data"]["result"].append({
+                    "metric": series.get("metric", {}),
+                    "values": values
+                })
+            except (ValueError, TypeError) as e:
+                print(f"⚠️ Erreur de conversion des données pour la série: {e}")
+                continue
+
+        return converted_data
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Erreur de requête HTTP: {str(e)}")
+        if hasattr(e, 'response') and e.response:
+            print(f"Contenu de l'erreur: {e.response.text[:200]}...")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"❌ Réponse JSON invalide: {str(e)}")
+        print(f"Contenu reçu: {response.text[:200]}...")
+        return None
+    except Exception as e:
+        print(f"❌ Erreur inattendue: {str(e)}")
+        return None
 
 def plot_to_pdf(queries_data, output_dir, filename, figsize):
     os.makedirs(output_dir, exist_ok=True)

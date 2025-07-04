@@ -5,7 +5,7 @@ class TestGeneral:
     
     def test_home_endpoint(self, client):
         """Test de l'endpoint home"""
-        response = client.get('/api/v1/')
+        response = client.get('/api/v2/')
         
         assert response.status_code == 200
         data = json.loads(response.data)
@@ -25,21 +25,21 @@ class TestGeneral:
     
     def test_cors_headers_present(self, client, auth_headers):
         """Test de la présence des headers CORS"""
-        response = client.get('/api/v1/products', headers=auth_headers)
+        response = client.get('/api/v2/products', headers=auth_headers)
         
         # Vérifier que les headers CORS sont présents dans la réponse
         assert 'Access-Control-Allow-Origin' in response.headers or response.status_code in [401, 403]
     
     def test_invalid_endpoint(self, client):
         """Test d'accès à un endpoint inexistant"""
-        response = client.get('/api/v1/invalid')
+        response = client.get('/api/v2/invalid')
         
         assert response.status_code == 404
     
     def test_content_type_validation(self, client, auth_headers):
         """Test de validation du content-type pour les POST"""
         # Test sans content-type JSON
-        response = client.post('/api/v1/orders',
+        response = client.post('/api/v2/orders',
                              data="invalid data",
                              headers=auth_headers)
         
@@ -48,7 +48,7 @@ class TestGeneral:
     
     def test_method_not_allowed(self, client):
         """Test de méthode non autorisée"""
-        response = client.patch('/api/v1/')
+        response = client.patch('/api/v2/')
         
         assert response.status_code == 405  # Method Not Allowed
     
@@ -59,7 +59,7 @@ class TestGeneral:
             'products': [{'product_id': i, 'quantity': 1} for i in range(1000)]
         }
         
-        response = client.post('/api/v1/orders',
+        response = client.post('/api/v2/orders',
                              data=json.dumps(large_order_data),
                              headers=auth_headers)
         
@@ -68,7 +68,7 @@ class TestGeneral:
     
     def test_empty_json_payload(self, client, auth_headers):
         """Test de payload JSON vide"""
-        response = client.post('/api/v1/orders',
+        response = client.post('/api/v2/orders',
                              data="{}",
                              headers=auth_headers)
         
@@ -76,7 +76,7 @@ class TestGeneral:
     
     def test_malformed_json(self, client, auth_headers):
         """Test de JSON malformé"""
-        response = client.post('/api/v1/orders',
+        response = client.post('/api/v2/orders',
                              data="{'invalid': json}",
                              headers=auth_headers)
         

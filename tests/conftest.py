@@ -60,11 +60,11 @@ def app():
         }
         
         # Ajouter les routes nécessaires pour les tests
-        @test_app.route('/api/v1/')
+        @test_app.route('/api/v2/')
         def home():
             return jsonify({"message": "API fonctionnelle"})
         
-        @test_app.route('/api/v1/products', methods=['GET'])
+        @test_app.route('/api/v2/products', methods=['GET'])
         def get_products():
             # Simuler des headers CORS
             response = jsonify([])
@@ -73,7 +73,7 @@ def app():
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
             return response
         
-        @test_app.route('/api/v1/orders', methods=['POST'])
+        @test_app.route('/api/v2/orders', methods=['POST'])
         def create_order():
             # Vérifier le content-type
             if not request.is_json:
@@ -227,6 +227,6 @@ def sample_pagination():
         'pages': 5,
         'page': 1,
         'per_page': 10,
-        'next': '/api/v1/products?page=2',
+        'next': '/api/v2/products?page=2',
         'prev': None
     }

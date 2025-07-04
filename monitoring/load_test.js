@@ -27,7 +27,7 @@ export let options = {
 };
 
 // Données de test
-const BASE_URL = 'http://localhost:80/api/v1';
+const BASE_URL = 'http://localhost:80/api/v2';
 const users = [
   { username: 'manager', password: 'test', store_id: 0, role: 'manager' },
   { username: 'employee', password: 'test', store_id: 1, role: 'employee' },
@@ -450,7 +450,7 @@ export default function () {
   if (Math.random() < 0.05) {
     group('Metrics Test', () => {
       // Note: Les métriques ne nécessitent généralement pas d'authentification
-      const metricsRes = http.get(`${BASE_URL.replace('/api/v1', '')}/metrics`);
+      const metricsRes = http.get(`${BASE_URL.replace('/api/v2', '')}/metrics`);
       const metricsSuccess = check(metricsRes, {
         'metrics accessible': (r) => r.status === 200,
         'metrics format': (r) =>

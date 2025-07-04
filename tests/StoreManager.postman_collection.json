@@ -27,7 +27,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/products",
+							"raw": "http://localhost:8080/api/v2/products",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -35,7 +35,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"products"
 							]
 						}
@@ -48,7 +48,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/products?page=1&per_page=2",
+							"raw": "http://localhost:8080/api/v2/products?page=1&per_page=2",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -56,7 +56,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"products"
 							],
 							"query": [
@@ -79,7 +79,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/products/1",
+							"raw": "http://localhost:8080/api/v2/products/1",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -87,7 +87,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"products",
 								"1"
 							]
@@ -110,7 +110,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/orders",
+							"raw": "http://localhost:8080/api/v2/orders",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -118,7 +118,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"orders"
 							]
 						}
@@ -131,7 +131,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/orders?page=1&per_page=2",
+							"raw": "http://localhost:8080/api/v2/orders?page=1&per_page=2",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -139,7 +139,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"orders"
 							],
 							"query": [
@@ -162,7 +162,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/orders/1",
+							"raw": "http://localhost:8080/api/v2/orders/1",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -170,7 +170,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"orders",
 								"1"
 							]
@@ -184,7 +184,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/orders/1",
+							"raw": "http://localhost:8080/api/v2/orders/1",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -192,7 +192,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"orders",
 								"1"
 							]
@@ -206,7 +206,7 @@
 						"method": "PUT",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/products/store/1/restock",
+							"raw": "http://localhost:8080/api/v2/products/store/1/restock",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -214,7 +214,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"products",
 								"store",
 								"1",
@@ -235,7 +235,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/orders/report",
+							"raw": "http://localhost:8080/api/v2/orders/report",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -243,7 +243,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"orders",
 								"report"
 							]
@@ -269,7 +269,7 @@
 							"raw": "{\n    \"username\":\"manager\",\n    \"password\":\"password\"\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/",
+							"raw": "http://localhost:8080/api/v2/",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -277,7 +277,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								""
 							]
 						}
@@ -334,7 +334,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/login",
+							"raw": "http://localhost:8080/api/v2/login",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -342,7 +342,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"login"
 							]
 						}
@@ -399,7 +399,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/login",
+							"raw": "http://localhost:8080/api/v2/login",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -407,7 +407,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"login"
 							]
 						}
@@ -429,7 +429,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/login",
+							"raw": "http://localhost:8080/api/v2/login",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -437,7 +437,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"login"
 							]
 						}
@@ -531,7 +531,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/login",
+							"raw": "http://localhost:8080/api/v2/login",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -539,7 +539,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"login"
 							]
 						}
@@ -552,7 +552,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/reset",
+							"raw": "http://localhost:8080/api/v2/reset",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -560,7 +560,7 @@
 							"port": "8080",
 							"path": [
 								"api",
-								"v1",
+								"v2",
 								"reset"
 							]
 						}
