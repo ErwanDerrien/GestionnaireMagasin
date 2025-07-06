@@ -33,7 +33,7 @@ jobs:
 
             - name: Lancer les tests (skippables)
               run: |
-                  PYTHONPATH=$PYTHONPATH:./src pytest -v
+                  PYTHONPATH=.:./src pytest -v
 
             - name: Préparer Docker pour le build
               uses: docker/setup-buildx-action@v3
