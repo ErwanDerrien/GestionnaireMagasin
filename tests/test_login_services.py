@@ -8,7 +8,17 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-import pytest
+# Ajoute le dossier racine du projet et le dossier src au sys.path
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT_DIR / "src"
+sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(SRC_DIR))
+
+# Import avec gestion d'erreur
+try:
+    from src.services import login_services
+except ImportError:
+    login_services = Mock()
 
 # Implémentation mock de la fonction login pour les tests
 def mock_login_implementation(username, password, store_id):
@@ -71,11 +81,6 @@ def mock_login_implementation(username, password, store_id):
 # Patch le module avant les tests
 @patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_manager_success(mock_login):
-    try:
-        from src.services import login_services
-    except ImportError:
-        login_services = Mock()
-
     response = login_services.login("manager", "test", 0)
     assert response == {"success": True, "status": "manager"}
 
