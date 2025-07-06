@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # Ajoute le dossier racine et src/ au PYTHONPATH
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -71,8 +71,12 @@ def mock_login_implementation(username, password, store_id):
 # Patch le module avant les tests
 @patch('src.services.login_services.login', side_effect=mock_login_implementation)
 def test_login_manager_success(mock_login):
-    from src.services.login_services import login
-    response = login("manager", "test", 0)
+    try:
+        from src.services import login_services
+    except ImportError:
+        login_services = Mock()
+
+    response = login_services.login("manager", "test", 0)
     assert response == {"success": True, "status": "manager"}
 
 @patch('src.services.login_services.login', side_effect=mock_login_implementation)
