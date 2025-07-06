@@ -26,6 +26,8 @@ jobs:
 
             - name: Créer les fichiers __init__.py manquants
               run: |
+                  pwd
+                  ls -la
                   touch ../src/__init__.py
                   touch ../src/services/__init__.py
 
