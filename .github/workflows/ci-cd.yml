@@ -26,8 +26,8 @@ jobs:
 
             - name: Créer les fichiers __init__.py manquants
               run: |
-                  touch src/__init__.py
-                  touch src/services/__init__.py
+                  touch ../src/__init__.py
+                  touch ../src/services/__init__.py
 
             - name: Installer les dépendances via requirements.txt
               run: pip install -r requirements.txt
