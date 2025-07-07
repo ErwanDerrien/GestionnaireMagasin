@@ -160,3 +160,7 @@ Utilisation CPU :
 ```promql
 sum by(instance) (rate(process_cpu_seconds_total[15m]) * 100)
 ```
+
+### Mettre à jour les variables globales
+1. Mettre une nouvelle entrée dans universal_variables.json
+2. Exécuter `python ./config/update_variables.py` à partir de la racine

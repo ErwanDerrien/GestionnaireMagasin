@@ -15,7 +15,7 @@ import hashlib
 import redis
 
 from config.variables import HOST, APP_PORT, API_MASK, VERSION, REDIS_PORT
-
+from src.utils.cache_utils import generate_cache_key, invalidate_cache_pattern
 
 app = Flask(__name__)
 
@@ -44,29 +44,9 @@ app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes par défaut
 # Initialisation du cache
 cache = Cache(app)
 
+
+
 swagger = Swagger(app)
-
-def generate_cache_key(prefix, **kwargs):
-    """Génère une clé de cache unique basée sur les paramètres"""
-    key_data = json.dumps(kwargs, sort_keys=True)
-    key_hash = hashlib.md5(key_data.encode()).hexdigest()
-    return f"{prefix}:{key_hash}"
-
-def invalidate_cache_pattern(pattern):
-    """Invalide les clés de cache correspondant à un pattern"""
-    try:
-        redis_client = redis.Redis(
-            host=app.config['CACHE_REDIS_HOST'],
-            port=app.config['CACHE_REDIS_PORT'],
-            db=app.config['CACHE_REDIS_DB'],
-            password=app.config['CACHE_REDIS_PASSWORD']
-        )
-        keys = list(redis_client.scan_iter(pattern))
-        if keys:
-            redis_client.delete(*keys)
-            print(f"Cache invalidé pour le pattern: {pattern}, {len(keys)} clés supprimées")
-    except Exception as e:
-        print(f"Erreur lors de l'invalidation du cache: {str(e)}")
         
 # Prometheus config
 # PROCESS_COLLECTOR.register()
@@ -459,9 +439,9 @@ def create_order_route():
 
         if result.get("status") == "success":
             # Invalider le cache des commandes et produits
-            invalidate_cache_pattern("all_orders:*")
-            invalidate_cache_pattern("all_products:*")
-            invalidate_cache_pattern(f"store_products_{data['store_id']}:*")
+            invalidate_cache_pattern("all_orders:*", host='redis', port=REDIS_PORT, db=0, password=None)
+            invalidate_cache_pattern("all_products:*", host='redis', port=REDIS_PORT, db=0, password=None)
+            invalidate_cache_pattern(f"store_products_{data['store_id']}:*", host='redis', port=REDIS_PORT, db=0, password=None)
             
             return cors_response({  
                 "status": "success",
@@ -558,8 +538,8 @@ def return_order_route(order_id):
             return cors_response(error, status_code)
 
         # Invalider le cache après retour de commande
-        invalidate_cache_pattern("all_orders:*")
-        invalidate_cache_pattern("all_products:*")
+        invalidate_cache_pattern("all_orders:*", host='redis', port=REDIS_PORT, db=0, password=None)
+        invalidate_cache_pattern("all_products:*", host='redis', port=REDIS_PORT, db=0, password=None)
 
         return cors_response({
             "status": "success",
@@ -767,7 +747,7 @@ def reset_database_route():
         
         if success:
             # Invalider tout le cache après réinitialisation
-            invalidate_cache_pattern("*")
+            invalidate_cache_pattern("*", host='redis', port=REDIS_PORT, db=0, password=None)
             
             return cors_response({
                 "status": "success",
@@ -913,8 +893,8 @@ def restock_store_route(store_id):
 
         # Invalider le cache des produits après restock
         if success:
-            invalidate_cache_pattern("all_products:*")
-            invalidate_cache_pattern(f"store_products_{store_id}:*")
+            invalidate_cache_pattern("all_products:*", host='redis', port=REDIS_PORT, db=0, password=None)
+            invalidate_cache_pattern(f"store_products_{store_id}:*", host='redis', port=REDIS_PORT, db=0, password=None)
 
         if not success: 
             error = build_error_response(
