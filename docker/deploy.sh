@@ -246,7 +246,7 @@ EOF
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
-    command: python -m src.controller.app
+    command: python -m src.app
     volumes:
       - ../:/app
     environment:

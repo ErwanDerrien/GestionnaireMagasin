@@ -14,8 +14,15 @@ import json
 import hashlib
 import redis
 
+from flask import Flask, jsonify
+from prometheus_flask_exporter import PrometheusMetrics
+from src.security import cors_response
 
 app = Flask(__name__)
+
+# Add other routes blueprints
+from src.controllers.auth_controller import auth_bp
+app.register_blueprint(auth_bp, url_prefix='/api/v2/auth')
 
 # Configuration
 app.config['SECRET_KEY'] = 'votre_cle_secrete_complexe'
@@ -76,53 +83,8 @@ import os
 
 instance_num = os.getenv('INSTANCE_NUM', 'standalone')
 
-
 @app.route('/instance-info')
 def instance_info():
-    return {"instance": instance_num}, 200
-
-@app.route("/api/v2/login", methods=["POST", "OPTIONS"])
-@swag_from({
-    'tags': ['Authentification'],
-    'description': 'Connexion utilisateur',
-    'parameters': [{
-        'name': 'body',
-        'in': 'body',
-        'required': True,
-        'schema': {
-            'type': 'object',
-            'properties': {
-                'username': {'type': 'string'},
-                'password': {'type': 'string'},
-                'store_id': {'type': 'integer'}
-            }
-        }
-    }],
-    'responses': {
-        200: {
-            'description': 'Connexion réussie',
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'status': {'type': 'string'},
-                    'token': {'type': 'string'},
-                    'user': {
-                        'type': 'object',
-                        'properties': {
-                            'username': {'type': 'string'},
-                            'role': {'type': 'string'},
-                            'store_id': {'type': 'integer'}
-                        }
-                    }
-                }
-            }
-        },
-        400: {'description': 'Données manquantes'},
-        401: {'description': 'Identifiants incorrects'},
-        500: {'description': 'Erreur serveur'}
-    }
-})
-def login_route():
     if request.method == "OPTIONS":
         return build_cors_preflight_response()
         
