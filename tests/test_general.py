@@ -1,5 +1,6 @@
 import json
 from config.variables import VERSION
+
 class TestGeneral:
     """Tests généraux pour l'application"""
     
@@ -25,32 +26,41 @@ class TestGeneral:
     
     def test_cors_headers_present(self, client, auth_headers):
         """Test de la présence des headers CORS"""
-        response = client.get('/api/v2/products/', headers=auth_headers, follow_redirects=True)
+        # Version robuste qui gère les redirections
+        response = client.get('/api/v2/products', headers=auth_headers, follow_redirects=True)
         
-        # Vérifier que les headers CORS sont présents dans la réponse
-        assert 'Access-Control-Allow-Origin' in response.headers or response.status_code in [401, 403]
+        # Vérification améliorée des headers CORS
+        assert 'Access-Control-Allow-Origin' in response.headers
+        assert 'Access-Control-Allow-Methods' in response.headers
+        assert response.status_code == 200
     
     def test_invalid_endpoint(self, client):
         """Test d'accès à un endpoint inexistant"""
         response = client.get('/api/v2/invalid')
-        
         assert response.status_code == 404
     
     def test_content_type_validation(self, client, auth_headers):
         """Test de validation du content-type pour les POST"""
-        # Test sans content-type JSON
-        response = client.post('/api/v2/orders/',
-                             data="invalid data",
-                             headers=auth_headers)
+        # Test 1: Sans content-type JSON
+        response = client.post('/api/v2/orders',
+                            data="invalid data",
+                            headers={'Authorization': auth_headers['Authorization']})  # Sans Content-Type
         
-        # Le serveur devrait retourner une erreur (400 ou 500)
-        assert response.status_code in [400, 500]
+        assert response.status_code == 400
+        
+        # Test 2: Avec mauvais content-type
+        response = client.post('/api/v2/orders',
+                            data="invalid data",
+                            headers={
+                                'Authorization': auth_headers['Authorization'],
+                                'Content-Type': 'text/plain'
+                            })
+        assert response.status_code == 400
     
     def test_method_not_allowed(self, client):
         """Test de méthode non autorisée"""
         response = client.patch('/api/v2/')
-        
-        assert response.status_code == 405  # Method Not Allowed
+        assert response.status_code == 405
     
     def test_large_payload_handling(self, client, auth_headers):
         """Test de gestion d'un payload volumineux"""
@@ -59,26 +69,33 @@ class TestGeneral:
             'products': [{'product_id': i, 'quantity': 1} for i in range(1000)]
         }
         
-        response = client.post('/api/v2/orders/',
-                             data=json.dumps(large_order_data),
-                             headers=auth_headers)
+        response = client.post('/api/v2/orders',
+                            json=large_order_data,  # Utilisation de json= au lieu de data=
+                            headers=auth_headers)
         
-        # Devrait traiter ou rejeter proprement le gros payload
-        assert response.status_code in [201, 400, 413, 500]
+        assert response.status_code in [201, 400, 413]
     
     def test_empty_json_payload(self, client, auth_headers):
         """Test de payload JSON vide"""
-        response = client.post('/api/v2/orders/',
-                             data="{}",
-                             headers=auth_headers)
+        response = client.post('/api/v2/orders',
+                            json={},  # Envoi direct d'un dict vide
+                            headers=auth_headers)
         
         assert response.status_code == 400
     
     def test_malformed_json(self, client, auth_headers):
         """Test de JSON malformé"""
-        response = client.post('/api/v2/orders/',
-                             data="{'invalid': json}",
-                             headers=auth_headers)
+        # Test 1: JSON syntaxiquement invalide
+        response = client.post('/api/v2/orders',
+                            data="{'invalid': json}",
+                            headers={
+                                'Authorization': auth_headers['Authorization'],
+                                'Content-Type': 'application/json'
+                            })
+        assert response.status_code == 400
         
-        # Devrait retourner une erreur de format
-        assert response.status_code in [400, 500]
+        # Test 2: Données manquantes
+        response = client.post('/api/v2/orders',
+                            json={"missing": "required_fields"},
+                            headers=auth_headers)
+        assert response.status_code == 400
