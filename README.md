@@ -2,113 +2,161 @@
 
 ## Backend de l'application de gestion de magasins v4
 
-## Documentation
+Documentation technique pour cette version du laboratoire disponible dans ce README.md. Cette documentation est en partie pour des personnes voulant utiliser et tester cette application. Il y a des commandes qui sont utiles pour le développement de l'application et servent de référence durant l'avancement du projet.
 
-- Rapport disponible en version `.md` dans `./documentation`
+Note importante concernant l'absence de documents : 
+- Le rapport d'analyse de données n'est pas inclus dans cette version
+- Il sera produit conjointement avec le rapport de l'étape 2 et disponible via le git tag correspondant
+- De nombreux tests sont documentés et serviront de base au rapport final
 
-# Étapes complètes pour tester démarrer le docker container
+## Installation et démarrage
 
-- avec le fichier .zip fraichement décompressé (faire `cd ./Lab4`)
-- avec git (faire `git clone https://github.com/ErwanDerrien/GestionnaireMagasin.git` puis faire `git checkout Lab4`)
-- à partir de la machine virtuelle (faire `cd ./Lab4`)
+### Méthodes d'installation
 
-## Lancer le serveur Flask pour le backend (Docker doit être installé)
+1. Via fichier ZIP :
+```bash
+cd ./Lab4
+```
 
-- `cd ./docker; docker compose down && docker compose build --no-cache && docker compose up`
-- `cd ./docker; colima start; ./deploy.sh --instances 5 --config least_conn`
-  
-## Lire la documentation de l'API (une fois le serveur démarré)
+2. Via Git :
+```bash
+git clone https://github.com/ErwanDerrien/GestionnaireMagasin.git
+cd GestionnaireMagasin
+git checkout Lab4
+```
 
-- Aller sur un navigateur à `http://localhost:8080/apidocs/`
+### Lancement du serveur Flask avec Docker
 
-## Intéragir avec l'API avec Postman
+Prérequis : Docker doit être installé
 
-- Ouvrir Postman
-- Importer `StoreManager.postman_collection.json`
-- Exécuter `Dev>ResetDatabase` si c'est la première fois que le projet est roulé sur la machine
-- Vous pouvez toujours tester la sécurité des endpoints si le login n'est pas fait.
-- Exécutez `Dev>Login Success Employee` (ou Manager) pour avoir le jwt nécessaire sauvegardé dans les variables globales de postman.
-- Une fois le login fait, les autres endpoints doivent être disponibles
+```bash
+cd ./docker
+docker compose down && docker compose build --no-cache && docker compose up
+```
 
-## Exécuter localement les tests de services
+Configuration du load balancing :
+```bash
+cd ./docker
+colima start
+./deploy.sh --instances 5 --config least_conn
+```
 
-- Si ce projet roule à partir du fichier `.zip` ou d'un `git clone` soyez sur d'avoir les dépendences, installez au besoin avec `npm install pytest`. Vous pouvez l'enlever après avec `npm uninstall pytest`
-- `pytest tests/`
+## Documentation et tests API
 
-## Générer le rapport en pdf
+### Documentation interactive
 
-➜  ProjetSession_LOG430 git:(main) ./monitoring/automate_load_tests.sh --help
-Usage: ./monitoring/automate_load_tests.sh --repo REPO_NAME --filename FILENAME [--vus VUS_COUNT] [--skip-tests]
+Accéder à la documentation Swagger :
+```
+http://localhost:8080/apidocs/
+```
 
-Options:
-  --repo         Nom du repository pour le rapport (obligatoire)
-  --filename     Nom du fichier pour le rapport (obligatoire)
-  --vus          Nombre d'utilisateurs virtuels (défaut: 10)
-  --skip-tests   Skip les tests et génère un rapport des 30 dernières minutes
-  -h, --help     Afficher cette aide
+### Tests avec Postman
 
-Exemples:
-  ./monitoring/automate_load_tests.sh --repo "after_round_robin" --filename "round_robin" --vus 15 --duration 2
-  ./monitoring/automate_load_tests.sh --repo "current_data" --filename "last_30min" --skip-tests
+1. Importer la collection : `StoreManager.postman_collection.json`
+2. Exécuter dans l'ordre :
+   - `Dev > ResetDatabase` (pour l'initialisation)
+   - `Dev > Login Success Employee` (ou Manager) pour obtenir le JWT
+3. Les autres endpoints deviennent accessibles après authentification
 
- `./monitoring/run_all_load_tests.sh`
+### Tests unitaires locaux
 
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --vus 15` 
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"` --vus 50
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"` --vus 500
+Pour les installations manuelles (ZIP ou git clone) :
 
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con"`
-`./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --skip-tests`
-`pandoc ./documentation/RapportArc42.md -o ./ErwanDerrien-RapportArc42.pdf \ 
+```bash
+npm install pytest  # Si nécessaire
+pytest tests/
+npm uninstall pytest  # Optionnel après utilisation
+```
+
+## Génération de rapports
+
+### Commandes pour les tests de charge
+
+Aide sur les options :
+```bash
+./monitoring/automate_load_tests.sh --help
+```
+
+Exemples d'utilisation :
+```bash
+./monitoring/run_all_load_tests.sh
+
+./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --vus 15
+./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --vus 50
+./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --vus 500
+./monitoring/automate_load_tests.sh --repo "after_round_robin_least_con" --filename "round_robin_least_con" --skip-tests
+```
+
+### Génération de PDF
+
+Rapport Arc42 :
+```bash
+pandoc ./documentation/RapportArc42.md -o ./ErwanDerrien-RapportArc42.pdf \
 --resource-path=.:./out \
 --pdf-engine=xelatex \
 --listings \
 -V urlcolor=blue \
 -V geometry:margin=2cm \
--V fontsize=12pt`
+-V fontsize=12pt
+```
 
-`(cd ./Rapport && pandoc "RapportEtudeDeCas.md" -o "../ErwanDerrien-RapportEtudeDeCas.pdf" \
---resource-path=".:../out")`
+Rapport d'étude de cas :
+```bash
+(cd ./Rapport && pandoc "RapportEtudeDeCas.md" -o "../ErwanDerrien-RapportEtudeDeCas.pdf" \
+--resource-path=".:../out")
+```
 
 ## Monitoring
 
-Exécuter les tests d'endpoints avec k6
-`k6 run --vus 10 --duration 1m monitoring/load_test.js`
+### Tests de charge avec k6
 
-Visualiser sur Prometheus :
+```bash
+k6 run --vus 10 --duration 1m monitoring/load_test.js
+```
+
+### Visualisation avec Prometheus
 
 Mode durée relative :
-`python ./monitoring/generate_prometheus_graphs.py \
+```bash
+python ./monitoring/generate_prometheus_graphs.py \
   --repo "after_round_robin" \
   --filename "round_robin" \
-  --duration 40`
+  --duration 40
+```
 
 Mode plage absolue :
-`python ./monitoring/generate_prometheus_graphs.py \
+```bash
+python ./monitoring/generate_prometheus_graphs.py \
   --repo "prod" \
   --filename "incident_analysis" \
   --start "2024-06-24T13:25:00" \
-  --end "2024-06-25T13:45:00"`
+  --end "2024-06-25T13:45:00"
+```
 
-Avec dimensions customisées :
-`python ./monitoring/generate_prometheus_graphs.py \
+Dimensions personnalisées :
+```bash
+python ./monitoring/generate_prometheus_graphs.py \
   --repo "large_report" \
   --filename "wide_format" \
   --duration 120 \
-  --width 20 --height 10`
+  --width 20 --height 10
+```
 
-Pour requests per seconds
-- `sum by(path) (
+### Requêtes Prometheus utiles
+
+Requêtes par seconde :
+```promql
+sum by(path) (
   rate(flask_http_request_duration_seconds_count{instance=~"store_manager.*"}[1m])
-)`
-Pour mémoire
-- `sum by(instance) (process_resident_memory_bytes / 1024 / 1024)`
-Pour CPU
-- `sum by(instance) (rate(process_cpu_seconds_total[15m]) * 100)`
+)
+```
 
+Utilisation mémoire :
+```promql
+sum by(instance) (process_resident_memory_bytes / 1024 / 1024)
+```
 
-## Utilisation de variables globales dans le projet
-sh `source config-loader.sh
-echo $API_BASE_URL`
-js `const { API_BASE_URL, API_BASE_PATH, API_VERSION, API_BASE_PORT } = require('./config-loader');`
-py `from config_loader import API_BASE_URL, API_BASE_PATH, API_VERSION, API_BASE_PORT,
+Utilisation CPU :
+```promql
+sum by(instance) (rate(process_cpu_seconds_total[15m]) * 100)
+```
