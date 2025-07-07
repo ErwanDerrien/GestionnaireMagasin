@@ -18,6 +18,7 @@ load_variables() {
         export VERSION=$(jq -r '.version' "$json_file")
         export PROMETHEUS_PORT=$(jq -r '.prometheus_port' "$json_file")
         export REDIS_PORT=$(jq -r '.redis_port' "$json_file")
+        export REDIS_EXPORTER_PORT=$(jq -r '.redis_exporter_port' "$json_file")
     else
         # Fallback sans jq (parsing basique)
         export HOST=$(grep -o '"host"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
@@ -26,6 +27,7 @@ load_variables() {
         export VERSION=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
         export PROMETHEUS_PORT=$(grep -o '"prometheus_port"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
         export REDIS_PORT=$(grep -o '"redis_port"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
+        export REDIS_EXPORTER_PORT=$(grep -o '"redis_exporter_port"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
     fi
 }
 
@@ -40,3 +42,4 @@ load_variables
 # echo $VERSION  # "v2"
 # echo $PROMETHEUS_PORT  # "9091"
 # echo $REDIS_PORT  # "6379"
+# echo $REDIS_EXPORTER_PORT  # "9121"

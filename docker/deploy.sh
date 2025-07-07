@@ -1,4 +1,5 @@
 #!/bin/bash
+source ../config/variables.sh
 
 set -e
 
@@ -90,12 +91,12 @@ docker rm -f $(docker ps -aq --filter "ancestor=redis") 2>/dev/null || true
 log_message "⏳ Attente de la libération des ports..."
 sleep 3
 
-# Forcer la libération du port 6379 si nécessaire
-log_message "🔧 Vérification et libération du port 6379"
-if lsof -i :6379 &>/dev/null; then
-  log_message "🔧 Libération forcée du port 6379"
-  # Tuer tous les processus utilisant le port 6379
-  sudo lsof -ti :6379 | xargs -r sudo kill -9 2>/dev/null || true
+# Forcer la libération du port $REDIS_PORT si nécessaire
+log_message "🔧 Vérification et libération du port $REDIS_PORT"
+if lsof -i :$REDIS_PORT &>/dev/null; then
+  log_message "🔧 Libération forcée du port $REDIS_PORT"
+  # Tuer tous les processus utilisant le port $REDIS_PORT
+  sudo lsof -ti :$REDIS_PORT | xargs -r sudo kill -9 2>/dev/null || true
   sleep 2
 fi
 
@@ -120,7 +121,7 @@ EOF
 upstream store_manager {
 EOF
     for i in $(seq 1 $instances); do
-      echo "    server store_manager_$i:8080;" >>"$file"
+      echo "    server store_manager_$i:$APP_PORT" >>"$file"
     done
     echo "}" >>"$file"
     ;;
@@ -131,7 +132,7 @@ upstream store_manager {
     least_conn;
 EOF
     for i in $(seq 1 $instances); do
-      echo "    server store_manager_$i:8080;" >>"$file"
+      echo "    server store_manager_$i:$APP_PORT;" >>"$file"
     done
     echo "}" >>"$file"
     ;;
@@ -142,7 +143,7 @@ upstream store_manager {
     ip_hash;
 EOF
     for i in $(seq 1 $instances); do
-      echo "    server store_manager_$i:8080;" >>"$file"
+      echo "    server store_manager_$i:$APP_PORT;" >>"$file"
     done
     echo "}" >>"$file"
     ;;
@@ -154,23 +155,23 @@ EOF
     for i in $(seq 1 $instances); do
       # Poids décroissant : premier serveur poids le plus élevé
       local weight=$((instances - i + 1))
-      echo "    server store_manager_$i:8080 weight=$weight;" >>"$file"
+      echo "    server store_manager_$i:$APP_PORT weight=$weight;" >>"$file"
     done
     echo "}" >>"$file"
     ;;
   esac
 
-  cat >>"$file" <<'EOF'
+  cat >>"$file" <<EOF
 
 server {
     listen 80;
     
     location / {
         proxy_pass http://store_manager;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_connect_timeout 30s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
@@ -180,22 +181,22 @@ server {
     # Endpoint de health check pour toutes les instances
     location /health {
         proxy_pass http://store_manager;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
     }
 
     # Métriques Prometheus depuis store_manager_1 seulement
     location /metrics {
-        proxy_pass http://store_manager_1:8080/metrics;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass http://store_manager_1:$APP_PORT/metrics;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
     }
 
     # Endpoint pour vérifier le cache Redis
     location /cache-status {
-        proxy_pass http://store_manager_1:8080/cache-status;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass http://store_manager_1:$APP_PORT/cache-status;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
     }
 }
 EOF
@@ -219,7 +220,7 @@ services:
     image: redis:7-alpine
     container_name: redis-store
     ports:
-      - "6379:6379"
+      - "$REDIS_PORT:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -251,7 +252,7 @@ EOF
       - ../:/app
     environment:
       - INSTANCE_NUM=$i
-      - PROMETHEUS_METRICS_PORT=8080
+      - PROMETHEUS_METRICS_PORT=$APP_PORT
       - REDIS_HOST=redis-store
       - REDIS_PORT=6379
       - REDIS_DB=0
@@ -262,7 +263,7 @@ EOF
     fi
     cat >>"$file" <<EOF
     ports:
-      - "$((8080 + i)):8080"
+      - "$(($APP_PORT + i)):$APP_PORT"
     networks:
       - monitoring_net
     container_name: store_manager_$i
@@ -287,7 +288,7 @@ EOF
     echo "      - store_manager_$i" >>"$file"
   done
 
-  cat >>"$file" <<'EOF'
+  cat >>"$file" <<EOF
     networks:
       - monitoring_net
     container_name: nginx
@@ -296,7 +297,7 @@ EOF
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - '9091:9090'
+      - '$PROMETHEUS_PORT:9090'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -318,21 +319,21 @@ EOF
     echo "      - store_manager_$i" >>"$file"
   done
 
-  cat >>"$file" <<'EOF'
+  cat >>"$file" <<EOF
 
   # Service pour monitoring Redis (optionnel)
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: redis-exporter
     ports:
-      - "9121:9121"
+      - "$REDIS_EXPORTER_PORT:9121"
     environment:
       - REDIS_ADDR=redis://redis-store:6379
 EOF
   if [ -n "$redis_password" ]; then
     echo "      - REDIS_PASSWORD=$redis_password" >>"$file"
   fi
-  cat >>"$file" <<'EOF'
+  cat >>"$file" <<EOF
     networks:
       - monitoring_net
     depends_on:
@@ -364,9 +365,9 @@ fi
 PROMETHEUS_TARGETS=""
 for i in $(seq 1 $INSTANCES); do
   if [ "$i" -eq 1 ]; then
-    PROMETHEUS_TARGETS="'store_manager_$i:8080'"
+    PROMETHEUS_TARGETS="'store_manager_$i:$APP_PORT'"
   else
-    PROMETHEUS_TARGETS="$PROMETHEUS_TARGETS, 'store_manager_$i:8080'"
+    PROMETHEUS_TARGETS="$PROMETHEUS_TARGETS, 'store_manager_$i:$APP_PORT'"
   fi
 done
 
@@ -422,7 +423,7 @@ log_message "🚀 Démarrage des services"
 docker compose up -d
 
 log_message "⏳ Vérification du démarrage des services..."
-sleep 10
+sleep 5
 
 log_message "📊 État des conteneurs:"
 docker compose ps
@@ -449,19 +450,19 @@ done
 log_message "✅ Déploiement terminé!"
 echo ""
 echo "🌐 Services disponibles:"
-echo "   • Application (Load Balancer): http://localhost"
-echo "   • Prometheus: http://localhost:9091"
-echo "   • Redis: localhost:6379"
-echo "   • Redis Exporter: http://localhost:9121"
+echo "   • Application (Load Balancer): http://$HOST"
+echo "   • Prometheus: http://$HOST:$PROMETHEUS_PORT"
+echo "   • Redis: $HOST:$REDIS_PORT"
+echo "   • Redis Exporter: http://$HOST:$REDIS_EXPORTER_PORT"
 echo ""
 echo "🔧 Instances store_manager:"
 for i in $(seq 1 $INSTANCES); do
-  echo "   • store_manager_$i: http://localhost:$((8080 + i))"
+  echo "   • store_manager_$i: http://$HOST:$(($APP_PORT + i))"
 done
 echo ""
 echo "📊 Monitoring:"
-echo "   • Métriques Redis: http://localhost:9121/metrics"
-echo "   • État cache: http://localhost/cache-status"
+echo "   • Métriques Redis: http://$HOST:$REDIS_EXPORTER_PORT/metrics"
+echo "   • État cache: http://$HOST/cache-status"
 echo ""
 echo "🔧 Commandes utiles:"
 echo "   • Logs Redis: docker logs redis-store"
