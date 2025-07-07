@@ -51,6 +51,6 @@ jobs:
               uses: docker/build-push-action@v5
               with:
                   context: .
-                  file: ./Docker/Dockerfile
+                  file: ./docker/Dockerfile
                   push: true
                   tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
