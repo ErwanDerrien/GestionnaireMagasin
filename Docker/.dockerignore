@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-*.log
-.env
-.git
-.dockerignore
-README.md
-tests/
