@@ -25,7 +25,7 @@ class TestGeneral:
     
     def test_cors_headers_present(self, client, auth_headers):
         """Test de la présence des headers CORS"""
-        response = client.get('/api/v2/products/', headers=auth_headers)
+        response = client.get('/api/v2/products/', headers=auth_headers, follow_redirects=True)
         
         # Vérifier que les headers CORS sont présents dans la réponse
         assert 'Access-Control-Allow-Origin' in response.headers or response.status_code in [401, 403]
