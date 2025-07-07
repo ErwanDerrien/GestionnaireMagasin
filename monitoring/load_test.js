@@ -99,7 +99,7 @@ function authenticate(user) {
   };
 
   const loginRes = http.post(
-    `${BASE_URL}/login`,
+    `${BASE_URL}/auth/login`,
     JSON.stringify(loginPayload),
     {
       headers: {

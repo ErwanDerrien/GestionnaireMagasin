@@ -31,21 +31,36 @@ def save_order(order_data: Dict[str, Union[List[Dict], int]]) -> Dict[str, Union
             print("Error: Invalid products list")
             return {"status": "error", "message": "Liste de produits invalide", "status_code": 400}
 
+        # Calcul des quantités par produit
+        from collections import Counter
+        product_counts = Counter()
+        for item in products:
+            try:
+                product_id = item['product_id']
+                quantity = item.get('quantity', 1)
+                product_counts[product_id] += quantity
+            except (KeyError, TypeError):
+                return {
+                    "status": "error",
+                    "message": "Format de produit invalide",
+                    "status_code": 400
+                }
+
         # Vérification des produits et stock
         valid_products = []
-        total = 0
+        total = 0.0
         errors = []
 
         with session.begin_nested():  
             seen_errors = set()
-            for pid, count in product_counts.items():
+            for product_id, count in product_counts.items():
                 product = session.query(Product).filter(
-                    Product.id == pid,
+                    Product.id == product_id,
                     Product.store_id == store_id
                 ).first()
 
                 if not product:
-                    msg = f"Produit ID {pid} non trouvé dans le magasin {store_id}"
+                    msg = f"Produit ID {product_id} non trouvé dans le magasin {store_id}"
                     if msg not in seen_errors:
                         errors.append(msg)
                         seen_errors.add(msg)
@@ -58,25 +73,26 @@ def save_order(order_data: Dict[str, Union[List[Dict], int]]) -> Dict[str, Union
                         seen_errors.add(msg)
                     continue
 
-                valid_products.extend([product] * count)
-                total += product.price * count
+                valid_products.append((product, count))
+                total += float(product.price) * count
 
         if errors:
             return {
                 "status": "error",
                 "message": "Problèmes avec certains produits",
                 "errors": errors,
-                "valid_products": [p.id for p in valid_products],
+                "valid_products": [p[0].id for p in valid_products],
                 "store_id": store_id,
                 "status_code": 409 if any("stock insuffisant" in e.lower() for e in errors) else 404
             }
 
         # Enregistrement final
         try:
-            products_str = ",".join(str(p.id) for p in valid_products)
+            # Création de la commande
+            products_str = ",".join(f"{p.id}:{q}" for p, q in valid_products)
             
             new_order = Order(
-                user_id="current_user",
+                user_id="current_user",  # À remplacer par l'ID utilisateur réel
                 price=total,
                 products=products_str,
                 status="completed",
@@ -84,9 +100,9 @@ def save_order(order_data: Dict[str, Union[List[Dict], int]]) -> Dict[str, Union
             )
             
             # Mise à jour du stock
-            for p in valid_products:
-                p.stock_quantity -= product_counts[p.id]
-                session.add(p)
+            for product, quantity in valid_products:
+                product.stock_quantity -= quantity
+                session.add(product)
             
             session.add(new_order)
             session.commit()
@@ -95,13 +111,19 @@ def save_order(order_data: Dict[str, Union[List[Dict], int]]) -> Dict[str, Union
                 "status": "success",
                 "order_id": new_order.id,
                 "total": total,
-                "products": [{"product_id": p.id, "name": p.name} for p in valid_products],
+                "products": [{
+                    "product_id": p.id, 
+                    "name": p.name,
+                    "quantity": q,
+                    "unit_price": float(p.price)
+                } for p, q in valid_products],
                 "store_id": store_id,
                 "message": f"Commande #{new_order.id} enregistrée pour le magasin {store_id}"
             }
             
         except SQLAlchemyError as e:
             session.rollback()
+            print(f"Database error: {str(e)}")
             return {
                 "status": "error",
                 "message": f"Erreur base de données: {str(e)}",
@@ -110,6 +132,7 @@ def save_order(order_data: Dict[str, Union[List[Dict], int]]) -> Dict[str, Union
             }
             
     except Exception as e:
+        print(f"Unexpected error: {str(e)}")
         return {
             "status": "error",
             "message": f"Erreur inattendue: {str(e)}",
