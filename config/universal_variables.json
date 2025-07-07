@@ -1,0 +1,8 @@
+{
+  "host": "localhost",
+  "app_port": "8080",
+  "api_mask": "api",
+  "version": "v2",
+  "prometheus_port": "9091",
+  "redis_port": "6379"
+}
