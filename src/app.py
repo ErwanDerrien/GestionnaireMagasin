@@ -10,18 +10,19 @@ from src.services.product_services import restock_store_products, search_product
 from src.services.order_services import orders_status, save_order, return_order, generate_orders_report
 from src.services.login_services import login
 from src.security import generate_jwt, role_required, build_error_response, build_cors_preflight_response, cors_response
-import json
-import hashlib
-import redis
 
 from config.variables import HOST, APP_PORT, API_MASK, VERSION, REDIS_PORT
 from src.utils.cache_utils import generate_cache_key, invalidate_cache_pattern
+from src.utils.extensions import cache
+from src.controllers.product_controller import product_bp
 
 app = Flask(__name__)
+cache.init_app(app)
 
 # Add other routes blueprints
 from src.controllers.auth_controller import auth_bp
 app.register_blueprint(auth_bp, url_prefix=f'/{API_MASK}/{VERSION}/auth')
+app.register_blueprint(product_bp, url_prefix=f'/{API_MASK}/{VERSION}/products')
 
 # Configuration
 app.config['SECRET_KEY'] = 'votre_cle_secrete_complexe'
@@ -42,7 +43,6 @@ app.config['CACHE_REDIS_PASSWORD'] = None  # Ajoutez votre mot de passe Redis si
 app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes par défaut
 
 # Initialisation du cache
-cache = Cache(app)
 
 
 

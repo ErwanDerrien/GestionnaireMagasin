@@ -212,7 +212,6 @@ generate_docker_compose() {
   local redis_password="$3"
 
   cat >"$file" <<EOF
-version: '3.8'
 
 services:
   # Service Redis pour le cache partagé
@@ -423,7 +422,7 @@ log_message "🚀 Démarrage des services"
 docker compose up -d
 
 log_message "⏳ Vérification du démarrage des services..."
-sleep 5
+sleep 1
 
 log_message "📊 État des conteneurs:"
 docker compose ps
