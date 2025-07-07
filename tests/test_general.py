@@ -1,5 +1,5 @@
 import json
-
+from config.variables import VERSION
 class TestGeneral:
     """Tests généraux pour l'application"""
     
@@ -14,7 +14,7 @@ class TestGeneral:
     def test_swagger_config(self, app):
         """Test de la configuration Swagger"""
         assert app.config['SWAGGER']['title'] == 'Store Manager API'
-        assert app.config['SWAGGER']['version'] == '1.0'
+        assert app.config['SWAGGER']['version'] == f'{VERSION}'
         assert app.config['SWAGGER']['description'] == 'API pour la gestion de magasins et produits'
         assert app.config['SWAGGER']['specs_route'] == '/apidocs/'
     

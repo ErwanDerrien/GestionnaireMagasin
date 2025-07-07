@@ -4,6 +4,14 @@ import os
 from unittest.mock import Mock, patch
 from flask import Flask, jsonify, request
 
+try:
+    # Essayer en ajoutant le parent du répertoire config au path
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config.variables import VERSION
+except ImportError:
+    # Fallback: valeur par défaut pour les tests
+    VERSION = "1.0"
+
 # Ajouter le répertoire racine au PYTHONPATH
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if root_dir not in sys.path:
@@ -54,7 +62,7 @@ def app():
         test_app.config['JWT_EXPIRATION_DELTA'] = datetime.timedelta(hours=1)
         test_app.config['SWAGGER'] = {
             'title': 'Store Manager API',
-            'version': '1.0',
+            'version': f'{VERSION}',
             'description': 'API pour la gestion de magasins et produits',
             'specs_route': '/apidocs/'
         }
