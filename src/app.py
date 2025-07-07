@@ -14,22 +14,21 @@ import json
 import hashlib
 import redis
 
-from flask import Flask, jsonify
-from prometheus_flask_exporter import PrometheusMetrics
-from src.security import cors_response
+from config.variables import HOST, APP_PORT, API_MASK, VERSION, REDIS_PORT
+
 
 app = Flask(__name__)
 
 # Add other routes blueprints
 from src.controllers.auth_controller import auth_bp
-app.register_blueprint(auth_bp, url_prefix='/api/v2/auth')
+app.register_blueprint(auth_bp, url_prefix=f'/{API_MASK}/{VERSION}/auth')
 
 # Configuration
 app.config['SECRET_KEY'] = 'votre_cle_secrete_complexe'
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(hours=1)
 app.config['SWAGGER'] = {
     'title': 'Store Manager API',
-    'version': '1.0',
+    'version': f'{VERSION}',
     'description': 'API pour la gestion de magasins et produits',
     'specs_route': '/apidocs/'
 }
@@ -37,7 +36,7 @@ app.config['SWAGGER'] = {
 # Configuration Redis Cache
 app.config['CACHE_TYPE'] = 'RedisCache'
 app.config['CACHE_REDIS_HOST'] = 'redis'
-app.config['CACHE_REDIS_PORT'] = 6379
+app.config['CACHE_REDIS_PORT'] = REDIS_PORT
 app.config['CACHE_REDIS_DB'] = 0
 app.config['CACHE_REDIS_PASSWORD'] = None  # Ajoutez votre mot de passe Redis si nécessaire
 app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes par défaut
