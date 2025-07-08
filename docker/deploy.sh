@@ -1,63 +1,62 @@
 #!/bin/bash
 source ../config/variables.sh
 
-set -e
-
-INSTANCES=3
+# Valeurs par défaut
+AUTH_INSTANCES=1
+PRODUCT_INSTANCES=1
+ORDER_INSTANCES=1
+OTHER_INSTANCES=1
+AUTH_LB="least_conn" # Default
+PRODUCT_LB="least_conn"
+ORDER_LB="least_conn"
+OTHER_LB="least_conn"
 NO_CACHE=""
 DOCKER_COMPOSE_FILE="docker-compose.yml"
-PROMETHEUS_CONFIG="./prometheus.yml"
-NGINX_CONFIG="./nginx.conf"
+PROMETHEUS_CONFIG="prometheus.yml"
+NGINX_CONFIG="nginx.conf"
 NGINX_UPSTREAM_CONFIG="least_conn"
 REDIS_PASSWORD=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-  --instances)
-    INSTANCES="$2"
+  --auth)
+    AUTH_INSTANCES="$2"
+    if [[ "$3" == "rr" || "$3" == "least_conn" ]]; then
+      AUTH_LB="$3"
+      shift 1
+    fi
+    shift 2
+    ;;
+  --products)
+    PRODUCT_INSTANCES="$2"
+    if [[ "$3" == "rr" || "$3" == "least_conn" ]]; then
+      PRODUCT_LB="$3"
+      shift 1
+    fi
+    shift 2
+    ;;
+  --orders)
+    ORDER_INSTANCES="$2"
+    if [[ "$3" == "rr" || "$3" == "least_conn" ]]; then
+      ORDER_LB="$3"
+      shift 1
+    fi
+    shift 2
+    ;;
+  --others)
+    OTHER_INSTANCES="$2"
+    if [[ "$3" == "rr" || "$3" == "least_conn" ]]; then
+      OTHER_LB="$3"
+      shift 1
+    fi
     shift 2
     ;;
   --no-cache)
     NO_CACHE="--no-cache"
     shift
     ;;
-  --redis-password)
-    REDIS_PASSWORD="$2"
-    shift 2
-    ;;
-  --config)
-    case $2 in
-    round_robin | rr)
-      NGINX_UPSTREAM_CONFIG="round_robin"
-      ;;
-    least_conn | lc)
-      NGINX_UPSTREAM_CONFIG="least_conn"
-      ;;
-    ip_hash | hash)
-      NGINX_UPSTREAM_CONFIG="ip_hash"
-      ;;
-    weighted | w)
-      NGINX_UPSTREAM_CONFIG="weighted"
-      ;;
-    *)
-      echo "Erreur: Configuration nginx invalide. Options: round_robin|rr, least_conn|lc, ip_hash|hash, weighted|w"
-      exit 1
-      ;;
-    esac
-    shift 2
-    ;;
   -h | --help)
-    echo "Usage: $0 [--instances N] [--no-cache] [--config CONFIG] [--redis-password PASSWORD]"
-    echo ""
-    echo "Options:"
-    echo "  --instances N         Nombre d'instances (défaut: 3)"
-    echo "  --no-cache           Build sans cache Docker"
-    echo "  --redis-password PWD Mot de passe Redis (optionnel)"
-    echo "  --config CONFIG      Configuration nginx:"
-    echo "                         round_robin|rr    - Round Robin"
-    echo "                         least_conn|lc     - Least Connections (défaut)"
-    echo "                         ip_hash|hash      - IP Hash"
-    echo "                         weighted|w        - Weighted Round Robin"
+    echo "Usage: $0 [--auth N [rr|least_conn]] [--products N [rr|least_conn]] [--orders N [rr|least_conn]] [--others N [rr|least_conn]] [--no-cache]"
     exit 0
     ;;
   *)
@@ -67,159 +66,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! [[ "$INSTANCES" =~ ^[1-9][0-9]*$ ]]; then
-  echo "Erreur: Le nombre d'instances doit être un entier positif"
-  exit 1
-fi
-
 log_message() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-log_message "🚀 Déploiement avec $INSTANCES instance(s) store_manager (config: $NGINX_UPSTREAM_CONFIG)"
-
-# Nettoyage complet au début
-log_message "🧹 Nettoyage complet des conteneurs existants"
+# 1. Nettoyage
+log_message "🧹 Nettoyage des conteneurs existants"
 docker compose down --volumes --remove-orphans 2>/dev/null || true
 
-# Nettoyer TOUS les conteneurs liés à Redis
-log_message "🧹 Nettoyage des conteneurs Redis"
-docker rm -f $(docker ps -aq --filter "name=redis") 2>/dev/null || true
-docker rm -f $(docker ps -aq --filter "ancestor=redis") 2>/dev/null || true
-
-# Attendre un peu pour que les ports se libèrent
-log_message "⏳ Attente de la libération des ports..."
-sleep 3
-
-# Forcer la libération du port $REDIS_PORT si nécessaire
-log_message "🔧 Vérification et libération du port $REDIS_PORT"
-if lsof -i :$REDIS_PORT &>/dev/null; then
-  log_message "🔧 Libération forcée du port $REDIS_PORT"
-  # Tuer tous les processus utilisant le port $REDIS_PORT
-  sudo lsof -ti :$REDIS_PORT | xargs -r sudo kill -9 2>/dev/null || true
-  sleep 2
-fi
-
-log_message "📝 Génération du nginx.conf"
-
-generate_nginx_config() {
-  local file="$1"
-  local instances="$2"
-  local config_type="$3"
-
-  cat >"$file" <<'EOF'
-# Configuration générée automatiquement par deploy.sh
-# Ne pas modifier manuellement
-
-EOF
-
-  # Générer les différentes configurations upstream
-  case $config_type in
-  "round_robin")
-    cat >>"$file" <<EOF
-# Configuration Round Robin (par défaut)
-upstream store_manager {
-EOF
-    for i in $(seq 1 $instances); do
-      echo "    server store_manager_$i:$APP_PORT" >>"$file"
-    done
-    echo "}" >>"$file"
-    ;;
-  "least_conn")
-    cat >>"$file" <<EOF
-# Configuration Least Connections
-upstream store_manager {
-    least_conn;
-EOF
-    for i in $(seq 1 $instances); do
-      echo "    server store_manager_$i:$APP_PORT;" >>"$file"
-    done
-    echo "}" >>"$file"
-    ;;
-  "ip_hash")
-    cat >>"$file" <<EOF
-# Configuration IP Hash
-upstream store_manager {
-    ip_hash;
-EOF
-    for i in $(seq 1 $instances); do
-      echo "    server store_manager_$i:$APP_PORT;" >>"$file"
-    done
-    echo "}" >>"$file"
-    ;;
-  "weighted")
-    cat >>"$file" <<EOF
-# Configuration Weighted Round Robin
-upstream store_manager {
-EOF
-    for i in $(seq 1 $instances); do
-      # Poids décroissant : premier serveur poids le plus élevé
-      local weight=$((instances - i + 1))
-      echo "    server store_manager_$i:$APP_PORT weight=$weight;" >>"$file"
-    done
-    echo "}" >>"$file"
-    ;;
-  esac
-
-  cat >>"$file" <<EOF
-
-server {
-    listen 80;
-    
-    location / {
-        proxy_pass http://store_manager;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_connect_timeout 30s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 30s;
-        proxy_buffering off;
-    }
-
-    # Endpoint de health check pour toutes les instances
-    location /health {
-        proxy_pass http://store_manager;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    # Métriques Prometheus depuis store_manager_1 seulement
-    location /metrics {
-        proxy_pass http://store_manager_1:$APP_PORT/metrics;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    # Endpoint pour vérifier le cache Redis
-    location /cache-status {
-        proxy_pass http://store_manager_1:$APP_PORT/cache-status;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-EOF
-}
-
-generate_nginx_config "$NGINX_CONFIG" "$INSTANCES" "$NGINX_UPSTREAM_CONFIG"
-
-log_message "📝 Génération du docker-compose.yml"
-
-generate_docker_compose() {
-  local file="$1"
-  local instances="$2"
-  local redis_password="$3"
-
-  cat >"$file" <<EOF
+# 2. Génération du docker-compose.yml dynamique
+log_message "📝 Génération du fichier docker-compose.yml"
+cat >$DOCKER_COMPOSE_FILE <<EOF
+version: '3'
 
 services:
-  # Service Redis pour le cache partagé
   redis:
     image: redis:7-alpine
     container_name: redis-store
     ports:
-      - "$REDIS_PORT:6379"
+      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -233,47 +98,125 @@ services:
       --maxmemory-policy allkeys-lru
 EOF
 
-  if [ -n "$redis_password" ]; then
-    echo "      --requirepass $redis_password" >>"$file"
-  fi
+# Génération des instances auth
+for i in $(seq 1 $AUTH_INSTANCES); do
+  PORT=$((8080 + i))
+  cat >>$DOCKER_COMPOSE_FILE <<EOF
 
-  echo "" >>"$file"
-
-  # Générer les services store_manager
-  for i in $(seq 1 $instances); do
-    cat >>"$file" <<EOF
-  store_manager_$i:
+  auth_instance_$i:
     build:
       context: ../
       dockerfile: ./docker/Dockerfile
-    command: python -m src.app
+    command: python -m src.app --service=auth
     volumes:
       - ../:/app
     environment:
       - INSTANCE_NUM=$i
-      - PROMETHEUS_METRICS_PORT=$APP_PORT
+      - SERVICE_TYPE=auth
+      - PROMETHEUS_METRICS_PORT=8080
       - REDIS_HOST=redis-store
       - REDIS_PORT=6379
-      - REDIS_DB=0
-      - JWT_EXPIRATION_DELTA=45
-EOF
-    if [ -n "$redis_password" ]; then
-      echo "      - REDIS_PASSWORD=$redis_password" >>"$file"
-    fi
-    cat >>"$file" <<EOF
     ports:
-      - "$(($APP_PORT + i)):$APP_PORT"
+      - "$PORT:8080"
     networks:
       - monitoring_net
-    container_name: store_manager_$i
+    container_name: auth_instance_$i
     depends_on:
       - redis
     restart: unless-stopped
-
 EOF
-  done
+done
 
-  cat >>"$file" <<EOF
+# Génération des instances product
+for i in $(seq 1 $PRODUCT_INSTANCES); do
+  PORT=$((8090 + i))
+  cat >>$DOCKER_COMPOSE_FILE <<EOF
+
+  product_instance_$i:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+    command: python -m src.app --service=product
+    volumes:
+      - ../:/app
+    environment:
+      - INSTANCE_NUM=$i
+      - SERVICE_TYPE=product
+      - PROMETHEUS_METRICS_PORT=8080
+      - REDIS_HOST=redis-store
+      - REDIS_PORT=6379
+    ports:
+      - "$PORT:8080"
+    networks:
+      - monitoring_net
+    container_name: product_instance_$i
+    depends_on:
+      - redis
+    restart: unless-stopped
+EOF
+done
+
+# Génération des instances order
+for i in $(seq 1 $ORDER_INSTANCES); do
+  PORT=$((8100 + i))
+  cat >>$DOCKER_COMPOSE_FILE <<EOF
+
+  order_instance_$i:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+    command: python -m src.app --service=order
+    volumes:
+      - ../:/app
+    environment:
+      - INSTANCE_NUM=$i
+      - SERVICE_TYPE=order
+      - PROMETHEUS_METRICS_PORT=8080
+      - REDIS_HOST=redis-store
+      - REDIS_PORT=6379
+    ports:
+      - "$PORT:8080"
+    networks:
+      - monitoring_net
+    container_name: order_instance_$i
+    depends_on:
+      - redis
+    restart: unless-stopped
+EOF
+done
+
+# Génération des autres instances
+for i in $(seq 1 $OTHER_INSTANCES); do
+  PORT=$((8110 + i))
+  cat >>$DOCKER_COMPOSE_FILE <<EOF
+
+  other_instance_$i:
+    build:
+      context: ../
+      dockerfile: ./docker/Dockerfile
+    command: python -m src.app --service=other
+    volumes:
+      - ../:/app
+    environment:
+      - INSTANCE_NUM=$i
+      - SERVICE_TYPE=other
+      - PROMETHEUS_METRICS_PORT=8080
+      - REDIS_HOST=redis-store
+      - REDIS_PORT=6379
+    ports:
+      - "$PORT:8080"
+    networks:
+      - monitoring_net
+    container_name: other_instance_$i
+    depends_on:
+      - redis
+    restart: unless-stopped
+EOF
+done
+
+# Ajout des services communs
+cat >>$DOCKER_COMPOSE_FILE <<EOF
+
   nginx:
     image: nginx:alpine
     ports:
@@ -283,11 +226,21 @@ EOF
     depends_on:
 EOF
 
-  for i in $(seq 1 $instances); do
-    echo "      - store_manager_$i" >>"$file"
-  done
+# Dépendances Nginx
+for i in $(seq 1 $AUTH_INSTANCES); do
+  echo "      - auth_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
+for i in $(seq 1 $PRODUCT_INSTANCES); do
+  echo "      - product_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
+for i in $(seq 1 $ORDER_INSTANCES); do
+  echo "      - order_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
+for i in $(seq 1 $OTHER_INSTANCES); do
+  echo "      - other_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
 
-  cat >>"$file" <<EOF
+cat >>$DOCKER_COMPOSE_FILE <<EOF
     networks:
       - monitoring_net
     container_name: nginx
@@ -296,7 +249,7 @@ EOF
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - '$PROMETHEUS_PORT:9090'
+      - '9091:9090'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -314,25 +267,29 @@ EOF
     depends_on:
 EOF
 
-  for i in $(seq 1 $instances); do
-    echo "      - store_manager_$i" >>"$file"
-  done
+# Dépendances Prometheus
+for i in $(seq 1 $AUTH_INSTANCES); do
+  echo "      - auth_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
+for i in $(seq 1 $PRODUCT_INSTANCES); do
+  echo "      - product_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
+for i in $(seq 1 $ORDER_INSTANCES); do
+  echo "      - order_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
+for i in $(seq 1 $OTHER_INSTANCES); do
+  echo "      - other_instance_$i" >>$DOCKER_COMPOSE_FILE
+done
 
-  cat >>"$file" <<EOF
+cat >>$DOCKER_COMPOSE_FILE <<EOF
 
-  # Service pour monitoring Redis (optionnel)
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: redis-exporter
     ports:
-      - "$REDIS_EXPORTER_PORT:9121"
+      - "9121:9121"
     environment:
       - REDIS_ADDR=redis://redis-store:6379
-EOF
-  if [ -n "$redis_password" ]; then
-    echo "      - REDIS_PASSWORD=$redis_password" >>"$file"
-  fi
-  cat >>"$file" <<EOF
     networks:
       - monitoring_net
     depends_on:
@@ -349,121 +306,132 @@ volumes:
   prometheus_data:
     driver: local
 EOF
+
+# 3. Génération de la configuration Nginx
+generate_upstream() {
+  local service=$1
+  local instances=$2
+  local lb_method=$3
+
+  echo "upstream ${service}_servers {"
+  if [[ "$lb_method" == "rr" ]]; then
+    echo "    # Round Robin"
+  else
+    echo "    least_conn;"
+  fi
+
+  for i in $(seq 1 $instances); do
+    echo "    server ${service}_instance_$i:8080;"
+  done
+  echo "}"
 }
 
-generate_docker_compose "$DOCKER_COMPOSE_FILE" "$INSTANCES" "$REDIS_PASSWORD"
+cat >nginx.conf <<EOF
+$(generate_upstream auth $AUTH_INSTANCES $AUTH_LB)
 
-log_message "📝 Génération du prometheus.yml"
+$(generate_upstream product $PRODUCT_INSTANCES $PRODUCT_LB)
 
-# Vérifier si prometheus.yml existe comme dossier et le supprimer
-if [ -d "$PROMETHEUS_CONFIG" ]; then
-  log_message "⚠️  prometheus.yml existe comme dossier, suppression..."
-  rm -rf "$PROMETHEUS_CONFIG"
-fi
+$(generate_upstream order $ORDER_INSTANCES $ORDER_LB)
 
-PROMETHEUS_TARGETS=""
-for i in $(seq 1 $INSTANCES); do
-  if [ "$i" -eq 1 ]; then
-    PROMETHEUS_TARGETS="'store_manager_$i:$APP_PORT'"
-  else
-    PROMETHEUS_TARGETS="$PROMETHEUS_TARGETS, 'store_manager_$i:$APP_PORT'"
-  fi
-done
+$(generate_upstream other $OTHER_INSTANCES $OTHER_LB)
 
-cat >"$PROMETHEUS_CONFIG" <<EOF
+server {
+    listen 80;
+    
+    location /auth {
+        proxy_pass http://auth_servers;
+        proxy_set_header Host \$host;
+    }
+
+    location /product {
+        proxy_pass http://product_servers;
+        proxy_set_header Host \$host;
+    }
+
+    location /order {
+        proxy_pass http://order_servers;
+        proxy_set_header Host \$host;
+    }
+
+    location / {
+        proxy_pass http://other_servers;
+        proxy_set_header Host \$host;
+    }
+}
+EOF
+
+# 4. Génération de la configuration Prometheus
+log_message "📝 Génération de la configuration Prometheus"
+cat >prometheus.yml <<EOF
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'store_managers'
+  - job_name: 'auth_instances'
     static_configs:
-      - targets: [$PROMETHEUS_TARGETS]
-    scrape_interval: 15s
+      - targets:
+EOF
+for i in $(seq 1 $AUTH_INSTANCES); do
+  echo "          - 'auth_instance_$i:8080'" >>prometheus.yml
+done
+
+cat >>prometheus.yml <<EOF
+
+  - job_name: 'product_instances'
+    static_configs:
+      - targets:
+EOF
+for i in $(seq 1 $PRODUCT_INSTANCES); do
+  echo "          - 'product_instance_$i:8080'" >>prometheus.yml
+done
+
+cat >>prometheus.yml <<EOF
+
+  - job_name: 'order_instances'
+    static_configs:
+      - targets:
+EOF
+for i in $(seq 1 $ORDER_INSTANCES); do
+  echo "          - 'order_instance_$i:8080'" >>prometheus.yml
+done
+
+cat >>prometheus.yml <<EOF
+
+  - job_name: 'other_instances'
+    static_configs:
+      - targets:
+EOF
+for i in $(seq 1 $OTHER_INSTANCES); do
+  echo "          - 'other_instance_$i:8080'" >>prometheus.yml
+done
+
+cat >>prometheus.yml <<EOF
 
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
-    scrape_interval: 15s
 EOF
 
-log_message "✅ Fichiers de configuration générés"
-
-log_message "🔍 Validation du docker-compose.yml"
-if command -v docker-compose &>/dev/null; then
-  docker-compose -f "$DOCKER_COMPOSE_FILE" config >/dev/null &&
-    log_message "✅ docker-compose.yml valide" ||
-    {
-      log_message "❌ Erreur dans docker-compose.yml:"
-      docker-compose -f "$DOCKER_COMPOSE_FILE" config
-      exit 1
-    }
-elif command -v docker &>/dev/null && docker compose version &>/dev/null; then
-  docker compose -f "$DOCKER_COMPOSE_FILE" config >/dev/null &&
-    log_message "✅ docker-compose.yml valide" ||
-    {
-      log_message "❌ Erreur dans docker-compose.yml:"
-      docker compose -f "$DOCKER_COMPOSE_FILE" config
-      exit 1
-    }
-else
-  log_message "⚠️  Impossible de valider le YAML (docker-compose non trouvé)"
-fi
-
-if [ -n "$NO_CACHE" ]; then
-  log_message "🔨 Build des images (sans cache)"
-  docker compose build --no-cache
-else
-  log_message "🔨 Build des images"
-  docker compose build
-fi
-
+# 5. Démarrage des services
 log_message "🚀 Démarrage des services"
-docker compose up -d
+docker compose up -d $NO_CACHE
 
-log_message "⏳ Vérification du démarrage des services..."
-sleep 1
-
-log_message "📊 État des conteneurs:"
-docker compose ps
-
-# Vérifier la connectivité Redis
-log_message "🔍 Test de connectivité Redis"
-if docker exec redis-store redis-cli ping >/dev/null 2>&1; then
-  log_message "✅ Redis est accessible"
-else
-  log_message "❌ Erreur de connectivité Redis"
-  log_message "📋 Logs Redis:"
-  docker logs redis-store --tail 10
-fi
-
-# Vérifier les logs pour les erreurs Redis
-log_message "🔍 Vérification des logs d'erreur Redis"
-for i in $(seq 1 $INSTANCES); do
-  if docker logs "store_manager_$i" 2>&1 | grep -q "redis\|Redis\|cache" | head -3; then
-    log_message "📋 Logs Redis pour store_manager_$i:"
-    docker logs "store_manager_$i" 2>&1 | grep -i "redis\|cache" | head -3
-  fi
+# 6. Vérification de Prometheus
+log_message "⏳ Vérification du démarrage de Prometheus..."
+until curl -s http://localhost:9091/-/ready >/dev/null; do
+  sleep 1
 done
+
+log_message "🔁 Rechargement de la configuration Prometheus"
+curl -X POST http://localhost:9091/-/reload
 
 log_message "✅ Déploiement terminé!"
 echo ""
-echo "🌐 Services disponibles:"
-echo "   • Application (Load Balancer): http://$HOST"
-echo "   • Prometheus: http://$HOST:$PROMETHEUS_PORT"
-echo "   • Redis: $HOST:$REDIS_PORT"
-echo "   • Redis Exporter: http://$HOST:$REDIS_EXPORTER_PORT"
-echo ""
-echo "🔧 Instances store_manager:"
-for i in $(seq 1 $INSTANCES); do
-  echo "   • store_manager_$i: http://$HOST:$(($APP_PORT + i))"
-done
-echo ""
-echo "📊 Monitoring:"
-echo "   • Métriques Redis: http://$HOST:$REDIS_EXPORTER_PORT/metrics"
-echo "   • État cache: http://$HOST/cache-status"
-echo ""
-echo "🔧 Commandes utiles:"
-echo "   • Logs Redis: docker logs redis-store"
-echo "   • CLI Redis: docker exec -it redis-store redis-cli"
-echo "   • Statut cache: docker exec redis-store redis-cli info memory"
+echo "🌐 Accès:"
+echo "  - Application: http://localhost"
+echo "  - Auth: http://localhost/auth (Instances: $AUTH_INSTANCES)"
+echo "  - Products: http://localhost/product (Instances: $PRODUCT_INSTANCES)"
+echo "  - Orders: http://localhost/order (Instances: $ORDER_INSTANCES)"
+echo "  - Prometheus: http://localhost:9091/targets"
+echo "  - Redis Exporter: http://localhost:9121"

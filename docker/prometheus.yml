@@ -3,12 +3,30 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'store_managers'
+  - job_name: 'auth_instances'
     static_configs:
-      - targets: ['store_manager_1:8080', 'store_manager_2:8080', 'store_manager_3:8080']
-    scrape_interval: 15s
+      - targets:
+          - 'auth_instance_1:8080'
+          - 'auth_instance_2:8080'
+
+  - job_name: 'product_instances'
+    static_configs:
+      - targets:
+          - 'product_instance_1:8080'
+          - 'product_instance_2:8080'
+          - 'product_instance_3:8080'
+
+  - job_name: 'order_instances'
+    static_configs:
+      - targets:
+          - 'order_instance_1:8080'
+
+  - job_name: 'other_instances'
+    static_configs:
+      - targets:
+          - 'other_instance_1:8080'
+          - 'other_instance_2:8080'
 
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
-    scrape_interval: 15s

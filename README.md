@@ -1,4 +1,4 @@
-# Lab4_LOG430
+# Lab5_LOG430
 
 ## Backend de l'application de gestion de magasins v4
 
@@ -15,30 +15,31 @@ Note importante concernant l'absence de documents :
 
 1. Via fichier ZIP :
 ```bash
-cd ./Lab4
+cd ./Lab5
 ```
 
 2. Via Git :
 ```bash
 git clone https://github.com/ErwanDerrien/GestionnaireMagasin.git
 cd GestionnaireMagasin
-git checkout Lab4
+git checkout Lab5
 ```
 
 ### Lancement du serveur Flask avec Docker
 
 Prérequis : Docker doit être installé
 
-```bash
-cd ./docker
-docker compose down && docker compose build --no-cache && docker compose up
-```
-
 Configuration du load balancing :
 ```bash
 cd ./docker
 colima start
 ./deploy.sh --instances 5 --config least_conn
+```
+
+Seulement une instance
+```bash
+cd ./docker
+docker compose down && docker compose build --no-cache && docker compose up
 ```
 
 ## Documentation et tests API
