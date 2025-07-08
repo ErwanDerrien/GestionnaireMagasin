@@ -1,123 +1,214 @@
 #!/bin/bash
+set -e
+
+# Vérifier si le fichier de configuration existe
+if [[ ! -f "../config/variables.sh" ]]; then
+  echo "⚠️  Fichier de configuration '../config/variables.sh' non trouvé"
+  echo "Création d'un fichier de configuration par défaut..."
+  mkdir -p ../config
+  cat >../config/variables.sh <<EOF
+#!/bin/bash
+# Configuration par défaut
+export DATABASE_URL="postgresql://kong:kong@postgres:5432/kong"
+export REDIS_URL="redis://redis-store:6379"
+EOF
+fi
+
 source ../config/variables.sh
 
-# Valeurs par défaut
+# Variables par défaut
 AUTH_INSTANCES=1
 PRODUCT_INSTANCES=1
 ORDER_INSTANCES=1
 OTHER_INSTANCES=1
-AUTH_LB="lc"  # Default: least_conn
-PRODUCT_LB="lc"
-ORDER_LB="lc"
-OTHER_LB="lc"
 NO_CACHE=""
 DOCKER_COMPOSE_FILE="docker-compose.yml"
-PROMETHEUS_CONFIG="prometheus.yml"
-NGINX_CONFIG="nginx.conf"
-
-# Fonction pour afficher l'aide
-show_help() {
-  echo "Usage: $0 [options]"
-  echo "Options:"
-  echo "  --auth N [lc|rr|hash|w]    Nombre d'instances auth + méthode LB"
-  echo "  --products N [lc|rr|hash|w] Nombre d'instances products + méthode LB"
-  echo "  --orders N [lc|rr|hash|w]   Nombre d'instances orders + méthode LB"
-  echo "  --others N [lc|rr|hash|w]   Nombre d'instances others + méthode LB"
-  echo "  --no-cache                 Rebuild sans cache Docker"
-  echo "Méthodes LB:"
-  echo "  lc    - Least Connections (défaut)"
-  echo "  rr    - Round Robin"
-  echo "  hash  - IP Hash"
-  echo "  w     - Weighted Round Robin"
-  exit 0
-}
-
-# Parsing des arguments
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --auth)
-      AUTH_INSTANCES="$2"
-      if [[ "$3" =~ ^(lc|rr|hash|w)$ ]]; then
-        AUTH_LB="$3"
-        shift
-      fi
-      shift 2
-      ;;
-    --products)
-      PRODUCT_INSTANCES="$2"
-      if [[ "$3" =~ ^(lc|rr|hash|w)$ ]]; then
-        PRODUCT_LB="$3"
-        shift
-      fi
-      shift 2
-      ;;
-    --orders)
-      ORDER_INSTANCES="$2"
-      if [[ "$3" =~ ^(lc|rr|hash|w)$ ]]; then
-        ORDER_LB="$3"
-        shift
-      fi
-      shift 2
-      ;;
-    --others)
-      OTHER_INSTANCES="$2"
-      if [[ "$3" =~ ^(lc|rr|hash|w)$ ]]; then
-        OTHER_LB="$3"
-        shift
-      fi
-      shift 2
-      ;;
-    --no-cache)
-      NO_CACHE="--no-cache"
-      shift
-      ;;
-    -h|--help)
-      show_help
-      ;;
-    *)
-      echo "Erreur: Argument inconnu $1"
-      show_help
-      exit 1
-      ;;
-  esac
-done
 
 log_message() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# 1. Nettoyage
-log_message "🧹 Nettoyage des conteneurs existants"
-docker compose down --volumes --remove-orphans 2>/dev/null || true
+# Fonction d'aide
+show_help() {
+  cat <<EOF
+Usage: $0 [OPTIONS]
 
-# 2. Génération du docker-compose.yml
-log_message "📝 Génération du docker-compose.yml"
-cat > "$DOCKER_COMPOSE_FILE" <<EOF
-services:
-  redis:
-    image: redis:7-alpine
-    container_name: redis-store
-    ports: ["6379:6379"]
-    volumes: [redis_data:/data]
-    networks: [monitoring_net]
-    restart: unless-stopped
-    command: >
-      redis-server
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+Options:
+  --auth N        Nombre d'instances du service auth (défaut: 1)
+  --products N    Nombre d'instances du service product (défaut: 1)
+  --orders N      Nombre d'instances du service order (défaut: 1)
+  --others N      Nombre d'instances du service other (défaut: 1)
+  --no-cache      Construire sans cache Docker
+  -h, --help      Afficher cette aide
+
+Exemples:
+  $0                           # Déploiement par défaut
+  $0 --auth 2 --products 3     # 2 instances auth, 3 instances product
+  $0 --no-cache                # Reconstruction sans cache
 EOF
+}
 
-# Fonction pour générer les instances
+# Traitement des arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  --auth)
+    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
+      echo "❌ Erreur: --auth nécessite un nombre"
+      exit 1
+    fi
+    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
+      echo "❌ Erreur: --auth doit être un nombre positif"
+      exit 1
+    fi
+    AUTH_INSTANCES="$2"
+    shift 2
+    ;;
+  --products)
+    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
+      echo "❌ Erreur: --products nécessite un nombre"
+      exit 1
+    fi
+    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
+      echo "❌ Erreur: --products doit être un nombre positif"
+      exit 1
+    fi
+    PRODUCT_INSTANCES="$2"
+    shift 2
+    ;;
+  --orders)
+    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
+      echo "❌ Erreur: --orders nécessite un nombre"
+      exit 1
+    fi
+    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
+      echo "❌ Erreur: --orders doit être un nombre positif"
+      exit 1
+    fi
+    ORDER_INSTANCES="$2"
+    shift 2
+    ;;
+  --others)
+    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
+      echo "❌ Erreur: --others nécessite un nombre"
+      exit 1
+    fi
+    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
+      echo "❌ Erreur: --others doit être un nombre positif"
+      exit 1
+    fi
+    OTHER_INSTANCES="$2"
+    shift 2
+    ;;
+  --no-cache)
+    NO_CACHE="--no-cache"
+    shift
+    ;;
+  -h | --help)
+    show_help
+    exit 0
+    ;;
+  *)
+    echo "❌ Argument inconnu: $1"
+    echo "Utilisez --help pour voir les options disponibles"
+    exit 1
+    ;;
+  esac
+done
+
+# Vérifier les prérequis
+check_prerequisites() {
+  local missing_tools=()
+
+  if ! command -v docker &>/dev/null; then
+    missing_tools+=("docker")
+  fi
+
+  if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
+    missing_tools+=("docker-compose")
+  fi
+
+  if ! command -v curl &>/dev/null; then
+    missing_tools+=("curl")
+  fi
+
+  if ! command -v jq &>/dev/null; then
+    missing_tools+=("jq")
+  fi
+
+  if [[ ${#missing_tools[@]} -gt 0 ]]; then
+    echo "❌ Outils manquants: ${missing_tools[*]}"
+    echo "Veuillez installer ces outils avant de continuer."
+    exit 1
+  fi
+}
+
+# Fonction pour attendre qu'un service soit prêt
+wait_for_service() {
+  local service_name=$1
+  local url=$2
+  local max_attempts=30
+  local attempt=1
+
+  log_message "⏳ Attente du service $service_name..."
+
+  while [[ $attempt -le $max_attempts ]]; do
+    if curl -s -f "$url" >/dev/null 2>&1; then
+      log_message "✅ Service $service_name prêt"
+      return 0
+    fi
+
+    echo -n "."
+    sleep 2
+    ((attempt++))
+  done
+
+  echo
+  log_message "❌ Timeout: Service $service_name non disponible après $((max_attempts * 2))s"
+  return 1
+}
+
+# Fonction pour configurer Kong avec gestion d'erreur
+configure_kong_service() {
+  local service=$1
+  local path=$2
+  local port=$3
+
+  log_message "🔧 Configuration du service Kong: $service"
+
+  # Créer le service
+  if ! curl -s -X POST http://localhost:8001/services \
+    -d "name=${service}-service" \
+    -d "url=http://${service}_instance_1:${port}" >/dev/null; then
+    log_message "❌ Erreur lors de la création du service $service"
+    return 1
+  fi
+
+  # Créer la route
+  if ! curl -s -X POST http://localhost:8001/services/${service}-service/routes \
+    -d "paths[]=${path}" >/dev/null; then
+    log_message "❌ Erreur lors de la création de la route pour $service"
+    return 1
+  fi
+
+  # Ajouter l'authentification
+  if ! curl -s -X POST http://localhost:8001/services/${service}-service/plugins \
+    -d "name=key-auth" >/dev/null; then
+    log_message "❌ Erreur lors de l'ajout de l'authentification pour $service"
+    return 1
+  fi
+
+  log_message "✅ Service $service configuré"
+}
+
+# Fonction pour générer les instances de services
 generate_instances() {
   local service=$1
-  local instances=$2
-  local start_port=$3
+  local count=$2
+  local base_port=$3
 
-  for i in $(seq 1 $instances); do
-    port=$((start_port + i))
-    cat >> "$DOCKER_COMPOSE_FILE" <<EOF
+  for i in $(seq 1 $count); do
+    port=$((base_port + i))
+    cat >>"$DOCKER_COMPOSE_FILE" <<EOF
 
   ${service}_instance_$i:
     build:
@@ -129,83 +220,122 @@ generate_instances() {
     environment:
       - INSTANCE_NUM=$i
       - SERVICE_TYPE=$service
-      - PROMETHEUS_METRICS_PORT=8080
       - REDIS_HOST=redis-store
       - REDIS_PORT=6379
     ports:
-      - "$port:8080"
+      - "${port}:8080"
     networks: [monitoring_net]
-    container_name: ${service}_instance_$i
-    depends_on: [redis]
-    restart: unless-stopped
-EOF
-  done
-}
-
-generate_instances auth $AUTH_INSTANCES 8080
-generate_instances product $PRODUCT_INSTANCES 8090
-generate_instances order $ORDER_INSTANCES 8100
-generate_instances other $OTHER_INSTANCES 8110
-
-# Section Nginx
-cat >> "$DOCKER_COMPOSE_FILE" <<EOF
-
-  nginx:
-    image: nginx:alpine
-    ports: ["80:80"]
-    volumes: [./nginx.conf:/etc/nginx/conf.d/default.conf:ro]
-    depends_on:
+    depends_on: 
       - redis
+      - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 EOF
-
-# Fonction pour générer les dépendances
-generate_depends_on() {
-  local service=$1
-  local instances=$2
-  for i in $(seq 1 $instances); do
-    echo "      - ${service}_instance_$i"
   done
 }
 
-# Ajout des dépendances
-generate_depends_on auth $AUTH_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-generate_depends_on product $PRODUCT_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-generate_depends_on order $ORDER_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-generate_depends_on other $OTHER_INSTANCES >> "$DOCKER_COMPOSE_FILE"
+# Vérification des prérequis
+check_prerequisites
 
-# Suite de la configuration
-cat >> "$DOCKER_COMPOSE_FILE" <<EOF
+log_message "🧹 Nettoyage des conteneurs existants"
+docker compose down --volumes --remove-orphans 2>/dev/null || true
+
+# Nettoyer les anciens fichiers
+rm -f "$DOCKER_COMPOSE_FILE"
+rm -rf prometheus.yml # Supprimer le répertoire ou fichier prometheus.yml
+
+log_message "📝 Génération du docker-compose.yml avec Kong"
+cat >"$DOCKER_COMPOSE_FILE" <<EOF
+services:
+  postgres:
+    image: postgres:13
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+      POSTGRES_DB: kong
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks: [monitoring_net]
-    container_name: nginx
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-store
+    ports: ["6379:6379"]
+    volumes: [redis_data:/data]
+    networks: [monitoring_net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kong-migrations:
+    image: kong:latest
+    container_name: kong-migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+    command: kong migrations bootstrap
+    networks: [monitoring_net]
+    restart: "no"
+
+  kong:
+    image: kong:latest
+    container_name: kong-gateway
+    depends_on:
+      - kong-migrations
+      - postgres
+      - redis
+    ports:
+      - "80:8000"
+      - "8001:8001"
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    networks: [monitoring_net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     ports: ["9091:9090"]
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--log.level=info'
-      - '--web.enable-lifecycle'
     networks: [monitoring_net]
-    container_name: prometheus
     restart: unless-stopped
-    depends_on:
-EOF
-
-# Dépendances Prometheus
-generate_depends_on auth $AUTH_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-generate_depends_on product $PRODUCT_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-generate_depends_on order $ORDER_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-generate_depends_on other $OTHER_INSTANCES >> "$DOCKER_COMPOSE_FILE"
-
-# Finalisation
-cat >> "$DOCKER_COMPOSE_FILE" <<EOF
+    depends_on: [redis]
 
   redis-exporter:
     image: oliver006/redis_exporter:latest
@@ -214,8 +344,20 @@ cat >> "$DOCKER_COMPOSE_FILE" <<EOF
     environment:
       - REDIS_ADDR=redis://redis-store:6379
     networks: [monitoring_net]
-    depends_on: [redis]
+    depends_on: 
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+EOF
+
+# Générer les instances des services
+generate_instances auth $AUTH_INSTANCES 8080
+generate_instances product $PRODUCT_INSTANCES 8090
+generate_instances order $ORDER_INSTANCES 8100
+generate_instances other $OTHER_INSTANCES 8110
+
+# Ajouter les réseaux et volumes
+cat >>"$DOCKER_COMPOSE_FILE" <<EOF
 
 networks:
   monitoring_net:
@@ -223,172 +365,138 @@ networks:
 
 volumes:
   redis_data:
-    driver: local
   prometheus_data:
-    driver: local
+  postgres_data:
 EOF
-
-# 3. Génération de la configuration Nginx
-generate_upstream() {
-  local service=$1
-  local instances=$2
-  local lb_method=$3
-
-  echo "upstream ${service}_servers {"
-  case "$lb_method" in
-    "rr")
-      echo "    # Round Robin"
-      ;;
-    "hash")
-      echo "    ip_hash;"
-      ;;
-    "w")
-      echo "    # Weighted Round Robin"
-      for i in $(seq 1 $instances); do
-        weight=$((instances - i + 2))  # Poids décroissant
-        echo "    server ${service}_instance_$i:8080 weight=$weight;"
-      done
-      echo "}"
-      return
-      ;;
-    *)
-      echo "    least_conn;"
-      ;;
-  esac
-
-  for i in $(seq 1 $instances); do
-    echo "    server ${service}_instance_$i:8080;"
-  done
-  echo "}"
-}
-
-log_message "📝 Génération de la configuration Nginx"
-cat > "$NGINX_CONFIG" <<EOF
-$(generate_upstream auth $AUTH_INSTANCES $AUTH_LB)
-
-$(generate_upstream product $PRODUCT_INSTANCES $PRODUCT_LB)
-
-$(generate_upstream order $ORDER_INSTANCES $ORDER_LB)
-
-$(generate_upstream other $OTHER_INSTANCES $OTHER_LB)
-
-server {
-    listen 80;
-    
-    location /auth {
-        proxy_pass http://auth_servers;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    location /product {
-        proxy_pass http://product_servers;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    location /order {
-        proxy_pass http://order_servers;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    location / {
-        proxy_pass http://other_servers;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    location /metrics {
-        proxy_pass http://auth_instance_1:8080/metrics;
-    }
-}
-EOF
-
-# 4. Génération de la configuration Prometheus
-generate_prometheus_targets() {
-  local service=$1
-  local instances=$2
-  local targets=""
-  
-  for i in $(seq 1 $instances); do
-    targets+="'${service}_instance_${i}:8080', "
-  done
-  
-  # Retire la dernière virgule
-  targets=${targets%, }
-  
-  cat <<EOF
-  - job_name: '${service}_instances'
-    static_configs:
-      - targets: [${targets}]
-EOF
-}
 
 log_message "📝 Génération de la configuration Prometheus"
-cat > "$PROMETHEUS_CONFIG" <<EOF
+cat >prometheus.yml <<EOF
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
 scrape_configs:
-$(generate_prometheus_targets auth $AUTH_INSTANCES)
-$(generate_prometheus_targets product $PRODUCT_INSTANCES)
-$(generate_prometheus_targets order $ORDER_INSTANCES)
-$(generate_prometheus_targets other $OTHER_INSTANCES)
+EOF
+
+# Fonction pour générer les targets d'un service
+generate_targets() {
+  local service=$1
+  local count=$2
+  local targets=""
+
+  for i in $(seq 1 $count); do
+    if [[ $i -eq 1 ]]; then
+      targets="'${service}_instance_$i:8080'"
+    else
+      targets="$targets, '${service}_instance_$i:8080'"
+    fi
+  done
+
+  echo "  - job_name: '${service}_instances'"
+  echo "    static_configs:"
+  echo "      - targets: [$targets]"
+}
+
+# Ajouter les targets pour chaque service
+for svc in auth product order other; do
+  case $svc in
+  auth) count=$AUTH_INSTANCES ;;
+  product) count=$PRODUCT_INSTANCES ;;
+  order) count=$ORDER_INSTANCES ;;
+  other) count=$OTHER_INSTANCES ;;
+  esac
+
+  for i in $(seq 1 $count); do
+    cat >>prometheus.yml <<EOF
+  - job_name: '${svc}_instance_$i'
+    static_configs:
+      - targets: ['${svc}_instance_$i:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+EOF
+  done
+done
+
+cat >>prometheus.yml <<EOF
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  - job_name: 'kong'
+    static_configs:
+      - targets: ['kong:8001']
+    metrics_path: /metrics
+    scrape_interval: 15s
 EOF
 
-# 5. Démarrage des services
-log_message "🚀 Démarrage des services"
-if ! docker compose up -d $NO_CACHE; then
-  log_message "❌ Erreur lors du démarrage des services"
-  docker compose logs --tail=20
+# Corriger les permissions du fichier prometheus.yml
+chmod 644 prometheus.yml
+
+log_message "🚀 Démarrage des services avec Kong"
+if [[ -n "$NO_CACHE" ]]; then
+  docker compose build $NO_CACHE
+fi
+
+docker compose up -d
+
+# Attendre que Kong soit prêt
+if ! wait_for_service "Kong Admin" "http://localhost:8001"; then
+  log_message "❌ Impossible de démarrer Kong"
   exit 1
 fi
 
-# 6. Vérification du démarrage
-log_message "⏳ Vérification du démarrage des services (timeout: 60s)..."
+# Configuration des services Kong
+configure_kong_service "auth" "/auth" "8080"
+configure_kong_service "product" "/product" "8080"
+configure_kong_service "order" "/order" "8080"
+configure_kong_service "other" "/" "8080"
 
-# Vérification simplifiée avec timeout
-timeout=60
-elapsed=0
-while ! curl -s http://localhost:9091/-/ready >/dev/null; do
-  if [ $elapsed -ge $timeout ]; then
-    log_message "⚠️ Prometheus ne répond pas après $timeout secondes (peut être lent au premier démarrage)"
-    log_message "ℹ️ Les autres services peuvent être fonctionnels même si Prometheus est lent"
-    break
-  fi
-  sleep 5
-  elapsed=$((elapsed + 5))
-  log_message "⏳ Attente de Prometheus... (${elapsed}s/${timeout}s)"
-done
+log_message "🔑 Génération d'une clé API"
+if ! curl -s -X POST http://localhost:8001/consumers \
+  -d "username=default-user" >/dev/null; then
+  log_message "❌ Erreur lors de la création du consumer"
+  exit 1
+fi
 
-# Tentative de rechargement (silencieuse)
-curl -s -X POST http://localhost:9091/-/reload >/dev/null || true
+KEY=$(curl -s -X POST http://localhost:8001/consumers/default-user/key-auth | jq -r '.key')
 
-# Message final
-log_message "✅ Déploiement terminé!"
+if [[ "$KEY" == "null" ]] || [[ -z "$KEY" ]]; then
+  log_message "❌ Erreur lors de la génération de la clé API"
+  exit 1
+fi
+
+# Redémarrer Prometheus pour charger la nouvelle configuration
+log_message "🔄 Redémarrage de Prometheus avec la nouvelle configuration"
+docker compose restart prometheus
+
+log_message "✅ Déploiement terminé avec succès"
 cat <<EOF
 
-🌐 Accès aux services:
-  - Application:       http://localhost
-  - Prometheus:        http://localhost:9091/targets
-  - Redis Exporter:    http://localhost:9121
+🌐 Services disponibles:
+  - API Gateway (Kong): http://localhost
+  - Kong Admin: http://localhost:8001
+  - Prometheus: http://localhost:9091
+  - Redis Exporter: http://localhost:9121
+  
+🔑 Clé API générée: $KEY
 
-Configuration Load Balancing:
-  - Auth:    $AUTH_INSTANCES instances (méthode: $AUTH_LB)
-  - Products: $PRODUCT_INSTANCES instances (méthode: $PRODUCT_LB)
-  - Orders:  $ORDER_INSTANCES instances (méthode: $ORDER_LB)
-  - Others:  $OTHER_INSTANCES instances (méthode: $OTHER_LB)
+📊 Instances déployées:
+  - Auth: $AUTH_INSTANCES instance(s)
+  - Product: $PRODUCT_INSTANCES instance(s)
+  - Order: $ORDER_INSTANCES instance(s)
+  - Other: $OTHER_INSTANCES instance(s)
 
-Pour consulter les logs:
-  docker compose logs -f
+📮 Exemple d'utilisation:
+  curl -H "apikey: $KEY" http://localhost/api/v2/auth
+  curl -H "apikey: $KEY" http://localhost/api/v2/product
+  curl -H "apikey: $KEY" http://localhost/api/v2/order
+
+🐳 Status des conteneurs:
 EOF
 
-# Vérification finale des services
-sleep 2  # Laisse un peu de temps pour le démarrage complet
-log_message "🔍 État des containers:"
-docker compose ps
+docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+
+log_message "📋 Vérification des services Kong"
+echo "Services Kong configurés:"
+curl -s http://localhost:8001/services | jq -r '.data[].name' 2>/dev/null || echo "Erreur lors de la récupération des services"
