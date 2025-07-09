@@ -68,9 +68,9 @@ def _register_blueprints(app):
     from src.controllers.order_controller import order_bp
     from src.controllers.admin_controller import admin_bp
     
-    app.register_blueprint(auth_bp, url_prefix=f'/{API_MASK}/{VERSION}/auth')
-    app.register_blueprint(product_bp, url_prefix=f'/{API_MASK}/{VERSION}/products')
-    app.register_blueprint(order_bp, url_prefix=f'/{API_MASK}/{VERSION}/orders')
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(product_bp)
+    app.register_blueprint(order_bp)
     app.register_blueprint(admin_bp)
 
 def _add_special_routes(app):

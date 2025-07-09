@@ -3,18 +3,73 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'auth_instances'
+  - job_name: 'auth_instance_1'
     static_configs:
-      - targets: ['auth_instance_1:8080', 'auth_instance_2:8080']
-  - job_name: 'product_instances'
+      - targets: ['auth_instance_1:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'auth_instance_2'
     static_configs:
-      - targets: ['product_instance_1:8080', 'product_instance_2:8080', 'product_instance_3:8080']
-  - job_name: 'order_instances'
+      - targets: ['auth_instance_2:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'product_instance_1'
     static_configs:
-      - targets: ['order_instance_1:8080', 'order_instance_2:8080', 'order_instance_3:8080', 'order_instance_4:8080', 'order_instance_5:8080']
-  - job_name: 'other_instances'
+      - targets: ['product_instance_1:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'product_instance_2'
     static_configs:
-      - targets: ['other_instance_1:8080', 'other_instance_2:8080']
+      - targets: ['product_instance_2:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'product_instance_3'
+    static_configs:
+      - targets: ['product_instance_3:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'order_instance_1'
+    static_configs:
+      - targets: ['order_instance_1:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'order_instance_2'
+    static_configs:
+      - targets: ['order_instance_2:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'order_instance_3'
+    static_configs:
+      - targets: ['order_instance_3:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'order_instance_4'
+    static_configs:
+      - targets: ['order_instance_4:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'order_instance_5'
+    static_configs:
+      - targets: ['order_instance_5:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'other_instance_1'
+    static_configs:
+      - targets: ['other_instance_1:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+  - job_name: 'other_instance_2'
+    static_configs:
+      - targets: ['other_instance_2:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  - job_name: 'kong'
+    static_configs:
+      - targets: ['kong:8001']
+    metrics_path: /metrics
+    scrape_interval: 15s

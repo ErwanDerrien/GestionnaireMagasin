@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+source ../config/variables.sh
 
 # Vérifier si le fichier de configuration existe
 if [[ ! -f "../config/variables.sh" ]]; then
@@ -192,10 +193,12 @@ configure_kong_service() {
 
   # Ajouter l'authentification
   if ! curl -s -X POST http://localhost:8001/services/${service}-service/plugins \
-    -d "name=key-auth" >/dev/null; then
+    -d "name=key-auth" \
+    -d "config.key_names[]=x-api-key" >/dev/null; then
     log_message "❌ Erreur lors de l'ajout de l'authentification pour $service"
     return 1
   fi
+  
 
   log_message "✅ Service $service configuré"
 }
@@ -447,10 +450,10 @@ if ! wait_for_service "Kong Admin" "http://localhost:8001"; then
 fi
 
 # Configuration des services Kong
-configure_kong_service "auth" "/auth" "8080"
-configure_kong_service "product" "/product" "8080"
-configure_kong_service "order" "/order" "8080"
-configure_kong_service "other" "/" "8080"
+configure_kong_service "auth" "/$API_MASK/$VERSION/auth" "8080"
+configure_kong_service "product" "/api/v2/products" "8080"
+configure_kong_service "order" "/api/v2/orders" "8080"
+configure_kong_service "other" "/api/v2/other" "8080"
 
 log_message "🔑 Génération d'une clé API"
 if ! curl -s -X POST http://localhost:8001/consumers \
@@ -488,9 +491,9 @@ cat <<EOF
   - Other: $OTHER_INSTANCES instance(s)
 
 📮 Exemple d'utilisation:
-  curl -H "apikey: $KEY" http://localhost/api/v2/auth
-  curl -H "apikey: $KEY" http://localhost/api/v2/product
-  curl -H "apikey: $KEY" http://localhost/api/v2/order
+  curl -H "apikey: $KEY" http://localhost/$API_MASK/$VERSION/auth
+  curl -H "apikey: $KEY" http://localhost/$API_MASK/$VERSION/product
+  curl -H "apikey: $KEY" http://localhost/$API_MASK/$VERSION/order
 
 🐳 Status des conteneurs:
 EOF
