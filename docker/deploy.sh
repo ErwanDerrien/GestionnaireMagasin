@@ -2,14 +2,13 @@
 set -e
 source ../config/variables.sh
 
-# Vérifier si le fichier de configuration existe
+# Fichier de configuration par défaut
 if [[ ! -f "../config/variables.sh" ]]; then
   echo "⚠️  Fichier de configuration '../config/variables.sh' non trouvé"
   echo "Création d'un fichier de configuration par défaut..."
   mkdir -p ../config
   cat >../config/variables.sh <<EOF
 #!/bin/bash
-# Configuration par défaut
 export DATABASE_URL="postgresql://kong:kong@postgres:5432/kong"
 export REDIS_URL="redis://redis-store:6379"
 EOF
@@ -17,11 +16,15 @@ fi
 
 source ../config/variables.sh
 
-# Variables par défaut
+# Valeurs par défaut
 AUTH_INSTANCES=1
 PRODUCT_INSTANCES=1
 ORDER_INSTANCES=1
 OTHER_INSTANCES=1
+AUTH_MODE=""
+PRODUCT_MODE=""
+ORDER_MODE=""
+OTHER_MODE=""
 NO_CACHE=""
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 
@@ -29,76 +32,45 @@ log_message() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
 }
 
-# Fonction d'aide
 show_help() {
   cat <<EOF
 Usage: $0 [OPTIONS]
 
 Options:
-  --auth N        Nombre d'instances du service auth (défaut: 1)
-  --products N    Nombre d'instances du service product (défaut: 1)
-  --orders N      Nombre d'instances du service order (défaut: 1)
-  --others N      Nombre d'instances du service other (défaut: 1)
-  --no-cache      Construire sans cache Docker
-  -h, --help      Afficher cette aide
+  --auth N MODE        Nombre d'instances du service auth + mode (hash, lc, rr, w)
+  --products N MODE    Nombre d'instances du service product + mode
+  --orders N MODE      Nombre d'instances du service order + mode
+  --others N MODE      Nombre d'instances du service other + mode
+  --no-cache           Construire sans cache Docker
+  -h, --help           Afficher cette aide
 
 Exemples:
-  $0                           # Déploiement par défaut
-  $0 --auth 2 --products 3     # 2 instances auth, 3 instances product
-  $0 --no-cache                # Reconstruction sans cache
+  $0 --auth 2 hash --products 3 lc --orders 5 rr --others 2 w
 EOF
 }
 
-# Traitement des arguments
+# Parsing des arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
   --auth)
-    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
-      echo "❌ Erreur: --auth nécessite un nombre"
-      exit 1
-    fi
-    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
-      echo "❌ Erreur: --auth doit être un nombre positif"
-      exit 1
-    fi
     AUTH_INSTANCES="$2"
-    shift 2
+    AUTH_MODE="$3"
+    shift 3
     ;;
   --products)
-    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
-      echo "❌ Erreur: --products nécessite un nombre"
-      exit 1
-    fi
-    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
-      echo "❌ Erreur: --products doit être un nombre positif"
-      exit 1
-    fi
     PRODUCT_INSTANCES="$2"
-    shift 2
+    PRODUCT_MODE="$3"
+    shift 3
     ;;
   --orders)
-    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
-      echo "❌ Erreur: --orders nécessite un nombre"
-      exit 1
-    fi
-    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
-      echo "❌ Erreur: --orders doit être un nombre positif"
-      exit 1
-    fi
     ORDER_INSTANCES="$2"
-    shift 2
+    ORDER_MODE="$3"
+    shift 3
     ;;
   --others)
-    if [[ -z "$2" ]] || [[ "$2" =~ ^- ]]; then
-      echo "❌ Erreur: --others nécessite un nombre"
-      exit 1
-    fi
-    if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -lt 1 ]]; then
-      echo "❌ Erreur: --others doit être un nombre positif"
-      exit 1
-    fi
     OTHER_INSTANCES="$2"
-    shift 2
+    OTHER_MODE="$3"
+    shift 3
     ;;
   --no-cache)
     NO_CACHE="--no-cache"
@@ -110,62 +82,32 @@ while [[ $# -gt 0 ]]; do
     ;;
   *)
     echo "❌ Argument inconnu: $1"
-    echo "Utilisez --help pour voir les options disponibles"
     exit 1
     ;;
   esac
 done
 
-# Vérifier les prérequis
 check_prerequisites() {
-  local missing_tools=()
-
-  if ! command -v docker &>/dev/null; then
-    missing_tools+=("docker")
-  fi
-
-  if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
-    missing_tools+=("docker-compose")
-  fi
-
-  if ! command -v curl &>/dev/null; then
-    missing_tools+=("curl")
-  fi
-
-  if ! command -v jq &>/dev/null; then
-    missing_tools+=("jq")
-  fi
-
-  if [[ ${#missing_tools[@]} -gt 0 ]]; then
-    echo "❌ Outils manquants: ${missing_tools[*]}"
-    echo "Veuillez installer ces outils avant de continuer."
-    exit 1
-  fi
+  for cmd in docker curl jq; do
+    if ! command -v $cmd &>/dev/null; then
+      echo "❌ $cmd est requis"
+      exit 1
+    fi
+  done
 }
 
-# Fonction pour attendre qu'un service soit prêt
 wait_for_service() {
-  local service_name=$1
+  local name=$1
   local url=$2
-  local max_attempts=30
-  local attempt=1
-
-  log_message "⏳ Attente du service $service_name..."
-
-  while [[ $attempt -le $max_attempts ]]; do
-    if curl -s -f "$url" >/dev/null 2>&1; then
-      log_message "✅ Service $service_name prêt"
-      return 0
+  for i in {1..30}; do
+    if curl -s -f "$url" &>/dev/null; then
+      log_message "✅ $name est prêt"
+      return
     fi
-
-    echo -n "."
     sleep 2
-    ((attempt++))
   done
-
-  echo
-  log_message "❌ Timeout: Service $service_name non disponible après $((max_attempts * 2))s"
-  return 1
+  echo "❌ $name ne répond pas"
+  exit 1
 }
 
 # Fonction pour configurer Kong avec gestion d'erreur
@@ -173,34 +115,49 @@ configure_kong_service() {
   local service=$1
   local path=$2
   local port=$3
+  local mode=$4
+  local count_var_name="${service^^}_INSTANCES"
+  local count="${!count_var_name}"
 
-  log_message "🔧 Configuration du service Kong: $service"
+  # Mapper les modes à ceux de Kong
+  case "$mode" in
+    rr) algorithm="round-robin" ;;
+    lc) algorithm="least-connections" ;;
+    hash) algorithm="consistent-hashing" ;;
+    *) algorithm="round-robin"; log_message "⚠️ Mode $mode non supporté. Utilisation de round-robin." ;;
+  esac
+
+  log_message "🔧 Config Kong: $service ($mode -> $algorithm)"
+
+  # Créer l'upstream
+  curl -s -X POST http://localhost:8001/upstreams \
+    -d "name=${service}-upstream" \
+    -d "algorithm=${algorithm}" >/dev/null
+
+  # Ajouter les targets
+  for i in $(seq 1 $count); do
+    curl -s -X POST http://localhost:8001/upstreams/${service}-upstream/targets \
+      -d "target=${service}_instance_$i:${port}" \
+      -d "weight=100" >/dev/null
+  done
 
   # Créer le service
-  if ! curl -s -X POST http://localhost:8001/services \
+  curl -s -X POST http://localhost:8001/services \
     -d "name=${service}-service" \
-    -d "url=http://${service}_instance_1:${port}" >/dev/null; then
-    log_message "❌ Erreur lors de la création du service $service"
-    return 1
-  fi
+    -d "host=${service}-upstream" \
+    -d "port=${port}" \
+    -d "protocol=http" >/dev/null
 
   # Créer la route
-  if ! curl -s -X POST http://localhost:8001/services/${service}-service/routes \
-    -d "paths[]=${path}" >/dev/null; then
-    log_message "❌ Erreur lors de la création de la route pour $service"
-    return 1
-  fi
+  curl -s -X POST http://localhost:8001/services/${service}-service/routes \
+    -d "paths[]=${path}" >/dev/null
 
-  # Ajouter l'authentification
-  if ! curl -s -X POST http://localhost:8001/services/${service}-service/plugins \
+  # Authentification
+  curl -s -X POST http://localhost:8001/services/${service}-service/plugins \
     -d "name=key-auth" \
-    -d "config.key_names[]=x-api-key" >/dev/null; then
-    log_message "❌ Erreur lors de l'ajout de l'authentification pour $service"
-    return 1
-  fi
-  
+    -d "config.key_names[]=x-api-key" >/dev/null
 
-  log_message "✅ Service $service configuré"
+  log_message "✅ $service configuré avec stratégie $algorithm"
 }
 
 # Fonction pour générer les instances de services
@@ -450,10 +407,10 @@ if ! wait_for_service "Kong Admin" "http://localhost:8001"; then
 fi
 
 # Configuration des services Kong
-configure_kong_service "auth" "/$API_MASK/$VERSION/auth" "8080"
-configure_kong_service "product" "/$API_MASK/$VERSION/products" "8080"
-configure_kong_service "order" "/$API_MASK/$VERSION/orders" "8080"
-configure_kong_service "other" "/$API_MASK/$VERSION/" "8080"
+configure_kong_service "auth" "/$API_MASK/$VERSION/auth" "8080" "$AUTH_MODE"
+configure_kong_service "product" "/$API_MASK/$VERSION/products" "8080" "$PRODUCT_MODE"
+configure_kong_service "order" "/$API_MASK/$VERSION/orders" "8080" "$ORDER_MODE"
+configure_kong_service "other" "/$API_MASK/$VERSION/" "8080" "$OTHER_MODE"
 
 log_message "🔑 Génération d'une clé API"
 if ! curl -s -X POST http://localhost:8001/consumers \
