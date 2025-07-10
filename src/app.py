@@ -20,9 +20,6 @@ def create_app():
     # Enregistrement des blueprints
     _register_blueprints(app)
     
-    # Routes spéciales
-    _add_special_routes(app)
-    
     return app
 
 def _configure_app(app):
@@ -68,24 +65,19 @@ def _register_blueprints(app):
     from src.controllers.order_controller import order_bp
     from src.controllers.admin_controller import admin_bp
     
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(product_bp)
-    app.register_blueprint(order_bp)
+    app.register_blueprint(auth_bp, url_prefix='/a')
+    app.register_blueprint(product_bp, url_prefix='/p')
+    app.register_blueprint(order_bp, url_prefix='/o')
     app.register_blueprint(admin_bp)
 
-def _add_special_routes(app):
-    """Ajoute les routes spéciales"""
-    @app.route('/metrics')
-    def metrics():
-        from prometheus_client import generate_latest
-        data = generate_latest()
-        return cors_response(Response(data, mimetype='text/plain'), 200)
-    
-    @app.route(f'/{API_MASK}/{VERSION}/')
-    def home():
-        return {"message": "API fonctionnelle"}
-
 app = create_app()
+
+"""Ajoute les routes spéciales"""
+@app.route('/metrics')
+def metrics():
+    from prometheus_client import generate_latest
+    data = generate_latest()
+    return cors_response(Response(data, mimetype='text/plain'), 200)
 
 if __name__ == '__main__':
     app.run(host=os.getenv('HOST', '0.0.0.0'), 

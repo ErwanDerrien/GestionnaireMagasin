@@ -451,9 +451,9 @@ fi
 
 # Configuration des services Kong
 configure_kong_service "auth" "/$API_MASK/$VERSION/auth" "8080"
-configure_kong_service "product" "/api/v2/products" "8080"
-configure_kong_service "order" "/api/v2/orders" "8080"
-configure_kong_service "other" "/api/v2/other" "8080"
+configure_kong_service "product" "/$API_MASK/$VERSION/products" "8080"
+configure_kong_service "order" "/$API_MASK/$VERSION/orders" "8080"
+configure_kong_service "other" "/$API_MASK/$VERSION/" "8080"
 
 log_message "🔑 Génération d'une clé API"
 if ! curl -s -X POST http://localhost:8001/consumers \

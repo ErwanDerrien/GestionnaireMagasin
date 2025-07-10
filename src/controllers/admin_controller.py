@@ -8,7 +8,11 @@ from config.variables import API_MASK, REDIS_PORT, VERSION
 
 admin_bp = Blueprint('admin', __name__)
 
-@admin_bp.route(f'/{API_MASK}/{VERSION}/reset', methods=["POST", "OPTIONS"])
+@admin_bp.route('/')
+def home():
+    return {"message": "API fonctionnelle"}
+
+@admin_bp.route(f'/reset', methods=["POST", "OPTIONS"])
 # @role_required('reset_database')
 @swag_from({
     'tags': ['Administration'],
