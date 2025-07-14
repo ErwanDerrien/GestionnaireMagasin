@@ -20,6 +20,8 @@ load_variables() {
         export REDIS_PORT=$(jq -r '.redis_port' "$json_file")
         export REDIS_EXPORTER_PORT=$(jq -r '.redis_exporter_port' "$json_file")
         export AUTH_SERVICE=$(jq -r '.auth_service' "$json_file")
+        export PRODUCTS_SERVICE=$(jq -r '.products_service' "$json_file")
+        export ORDERS_SERVICE=$(jq -r '.orders_service' "$json_file")
     else
         # Fallback sans jq (parsing basique)
         export HOST=$(grep -o '"host"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
@@ -30,6 +32,8 @@ load_variables() {
         export REDIS_PORT=$(grep -o '"redis_port"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
         export REDIS_EXPORTER_PORT=$(grep -o '"redis_exporter_port"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
         export AUTH_SERVICE=$(grep -o '"auth_service"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
+        export PRODUCTS_SERVICE=$(grep -o '"products_service"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
+        export ORDERS_SERVICE=$(grep -o '"orders_service"[[:space:]]*:[[:space:]]*"[^"]*"' "$json_file" | cut -d'"' -f4)
     fi
 }
 
@@ -46,3 +50,5 @@ load_variables
 # echo $REDIS_PORT  # "6379"
 # echo $REDIS_EXPORTER_PORT  # "9121"
 # echo $AUTH_SERVICE  # "auth/a"
+# echo $PRODUCTS_SERVICE  # "products"
+# echo $ORDERS_SERVICE  # "orders"

@@ -40,6 +40,12 @@ class Variables:
     @property
     def AUTH_SERVICE(self) -> str:
         return self._vars.get('auth_service', '')
+    @property
+    def PRODUCTS_SERVICE(self) -> str:
+        return self._vars.get('products_service', '')
+    @property
+    def ORDERS_SERVICE(self) -> str:
+        return self._vars.get('orders_service', '')
 
 # Instance globale
 vars = Variables()
@@ -53,8 +59,10 @@ PROMETHEUS_PORT = vars.PROMETHEUS_PORT
 REDIS_PORT = vars.REDIS_PORT
 REDIS_EXPORTER_PORT = vars.REDIS_EXPORTER_PORT
 AUTH_SERVICE = vars.AUTH_SERVICE
+PRODUCTS_SERVICE = vars.PRODUCTS_SERVICE
+ORDERS_SERVICE = vars.ORDERS_SERVICE
 
 # Usage:
-# from variables import HOST, APP_PORT, API_MASK, VERSION, PROMETHEUS_PORT, REDIS_PORT, REDIS_EXPORTER_PORT, AUTH_SERVICE
+# from variables import HOST, APP_PORT, API_MASK, VERSION, PROMETHEUS_PORT, REDIS_PORT, REDIS_EXPORTER_PORT, AUTH_SERVICE, PRODUCTS_SERVICE, ORDERS_SERVICE
 # print(HOST)  # "localhost"
 # print(APP_PORT)  # "8080"

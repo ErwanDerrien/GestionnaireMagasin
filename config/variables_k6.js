@@ -9,3 +9,5 @@ export const PROMETHEUS_PORT = "9091";
 export const REDIS_PORT = "6379";
 export const REDIS_EXPORTER_PORT = "9121";
 export const AUTH_SERVICE = "auth/a";
+export const PRODUCTS_SERVICE = "products";
+export const ORDERS_SERVICE = "orders";
