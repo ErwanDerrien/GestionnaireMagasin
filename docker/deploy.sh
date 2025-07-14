@@ -116,15 +116,18 @@ configure_kong_service() {
   local path=$2
   local port=$3
   local mode=$4
-  local count_var_name="${service^^}_INSTANCES"
-  local count="${!count_var_name}"
+  local count_var_name=$(echo "${service}_INSTANCES" | tr '[:lower:]' '[:upper:]')
+  local count=$(eval echo \$$count_var_name)
 
   # Mapper les modes à ceux de Kong
   case "$mode" in
-    rr) algorithm="round-robin" ;;
-    lc) algorithm="least-connections" ;;
-    hash) algorithm="consistent-hashing" ;;
-    *) algorithm="round-robin"; log_message "⚠️ Mode $mode non supporté. Utilisation de round-robin." ;;
+  rr) algorithm="round-robin" ;;
+  lc) algorithm="least-connections" ;;
+  hash) algorithm="consistent-hashing" ;;
+  *)
+    algorithm="round-robin"
+    log_message "⚠️ Mode $mode non supporté. Utilisation de round-robin."
+    ;;
   esac
 
   log_message "🔧 Config Kong: $service ($mode -> $algorithm)"
