@@ -37,6 +37,9 @@ class Variables:
     @property
     def REDIS_EXPORTER_PORT(self) -> str:
         return self._vars.get('redis_exporter_port', '')
+    @property
+    def AUTH_SERVICE(self) -> str:
+        return self._vars.get('auth_service', '')
 
 # Instance globale
 vars = Variables()
@@ -49,8 +52,9 @@ VERSION = vars.VERSION
 PROMETHEUS_PORT = vars.PROMETHEUS_PORT
 REDIS_PORT = vars.REDIS_PORT
 REDIS_EXPORTER_PORT = vars.REDIS_EXPORTER_PORT
+AUTH_SERVICE = vars.AUTH_SERVICE
 
 # Usage:
-# from variables import HOST, APP_PORT, API_MASK, VERSION, PROMETHEUS_PORT, REDIS_PORT, REDIS_EXPORTER_PORT
+# from variables import HOST, APP_PORT, API_MASK, VERSION, PROMETHEUS_PORT, REDIS_PORT, REDIS_EXPORTER_PORT, AUTH_SERVICE
 # print(HOST)  # "localhost"
 # print(APP_PORT)  # "8080"

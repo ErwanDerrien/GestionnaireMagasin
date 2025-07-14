@@ -23,10 +23,11 @@ module.exports = {
   VERSION: vars.version,
   PROMETHEUS_PORT: vars.prometheus_port,
   REDIS_PORT: vars.redis_port,
-  REDIS_EXPORTER_PORT: vars.redis_exporter_port
+  REDIS_EXPORTER_PORT: vars.redis_exporter_port,
+  AUTH_SERVICE: vars.auth_service
 };
 
 // Usage:
-// const { HOST, APP_PORT, API_MASK, VERSION, PROMETHEUS_PORT, REDIS_PORT, REDIS_EXPORTER_PORT } = require('./variables');
+// const { HOST, APP_PORT, API_MASK, VERSION, PROMETHEUS_PORT, REDIS_PORT, REDIS_EXPORTER_PORT, AUTH_SERVICE } = require('./variables');
 // console.log(HOST); // "localhost"
 // console.log(APP_PORT); // "8080"

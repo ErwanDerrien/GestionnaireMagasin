@@ -151,6 +151,24 @@ load_variables
     
     return content
 
+def generate_k6_interpreter(variables):
+    """Générer un fichier de variables compatible avec K6 (ESM, sans require/fs)"""
+    lines = []
+    for key, value in variables.items():
+        js_key = key.upper()
+        if isinstance(value, str):
+            value_repr = f'"{value}"'
+        else:
+            value_repr = json.dumps(value)
+        lines.append(f"export const {js_key} = {value_repr};")
+    
+    content = "// Fichier généré automatiquement pour K6\n"
+    content += "// Ne pas modifier manuellement\n\n"
+    content += "\n".join(lines)
+    content += "\n"
+    return content
+
+
 def update_interpreters():
     """Mettre à jour tous les interpréteurs"""
     print("🔄 Lecture du fichier universal_variables.json...")
@@ -166,7 +184,8 @@ def update_interpreters():
     interpreters = {
         'variables.js': generate_js_interpreter(variables),
         'variables.py': generate_python_interpreter(variables),
-        'variables.sh': generate_shell_interpreter(variables)
+        'variables.sh': generate_shell_interpreter(variables),
+        'variables_k6.js': generate_k6_interpreter(variables)
     }
     
     # Écrire les fichiers
