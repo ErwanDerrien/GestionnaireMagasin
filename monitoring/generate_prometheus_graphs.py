@@ -9,7 +9,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 # Configuration Prometheus
 PROMETHEUS_URL = "http://localhost:9091"
 QUERIES = {
-    "Requests per second": 'sum by(path)(rate(flask_http_request_duration_seconds_count{instance=~"store_manager.*"}[1m]))',
+    "Requests per second": 'sum by(service, path) (label_replace(rate(flask_http_request_duration_seconds_count{instance=~"(auth|order|product|other)_instance.*"}[1m]),"service", "$1", "instance", "^(auth|order|product|other)_instance.*"))',
     "Memory (MB)": 'sum by(instance)(process_resident_memory_bytes / 1024 / 1024)',
     "CPU (%)": 'sum by(instance)(rate(process_cpu_seconds_total[15m]) * 100)',
     "Average Latency (s)": 'sum by(instance) (rate(flask_http_request_duration_seconds_sum[15m])) / sum by(instance) (rate(flask_http_request_duration_seconds_count[15m]))',

@@ -415,6 +415,25 @@ configure_kong_service "product" "/$API_MASK/$VERSION/products" "8080" "$PRODUCT
 configure_kong_service "order" "/$API_MASK/$VERSION/orders" "8080" "$ORDER_MODE"
 configure_kong_service "other" "/$API_MASK/$VERSION/" "8080" "$OTHER_MODE"
 
+log_message "✅ Configuration des services terminée"
+
+log_message "📊 Activation du plugin Prometheus sur Kong..."
+
+# Attendre que Kong soit prêt
+until curl -s http://localhost:8001/status >/dev/null; do
+  echo "⏳ Attente de Kong..."
+  sleep 1
+done
+
+# Vérifie si le plugin prometheus est déjà activé
+if ! curl -s http://localhost:8001/plugins | grep -q '"name":"prometheus"'; then
+  curl -s -X POST http://localhost:8001/plugins \
+    --data "name=prometheus" &&
+    log_message "✅ Plugin Prometheus activé sur Kong"
+else
+  log_message "ℹ️ Plugin Prometheus déjà actif sur Kong"
+fi
+
 log_message "🔑 Génération d'une clé API"
 if ! curl -s -X POST http://localhost:8001/consumers \
   -d "username=default-user" >/dev/null; then
