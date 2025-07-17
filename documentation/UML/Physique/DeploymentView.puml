@@ -47,7 +47,7 @@ order --> pg : ORM
 product --> pg : ORM
 report --> pg : SQL
 
-order --> redis : Panier
+order --> redis : Cache
 product --> redis : Cache
 
 cloud "Monitoring" {

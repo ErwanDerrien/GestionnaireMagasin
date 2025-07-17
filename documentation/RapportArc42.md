@@ -69,18 +69,24 @@ Les objectifs clés incluent :
 - Génération de rapports consolidés
 - Tableaux de bord de performance
 
-**Partenaires Métier**:
+**Partenaires Métier** :
 
-| Acteur              | Interactions                    |
-| ------------------- | ------------------------------- |
-| Employés de magasin | Demandes de réapprovisionnement |
-| Employés de magasin | Saisie des ventes               |
-| Employés de magasin | Recherch de produits            |
-| Siège Social        | Consultation des rapports       |
+| Acteur                  | Interactions                                                   | Format/Protocole | Composants Système Concernés                                             |
+| ----------------------- | -------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------ |
+| **Employés de magasin** | - Recherche de stock (locaux et centre de réapprovisionnement) | Web (HTTPS/JSON) | Recherche de stock, Produits locaux, Produits centre réapprovisionnement |
+|                         | - Réapprovisionnement produits                                 | Web (HTTPS/JSON) | Réapprovisionner produits                                                |
+|                         | - Gestion des commandes (enregistrement, annulation)           | Web (HTTPS/JSON) | Gestion des commandes, Enregistrer une commande, Annuler une commande    |
+| **Administrateurs**     | - Voir les données de performance des instances                | Web (HTTPS/JSON) | Statistiques (Tableaux de bord)                                          |
+|                         | - Déployer les instances avec une configuration custom         | Web (HTTPS/JSON) | Déploiement custom                                                       |
+| **Siège Social**        | - Génération de rapports consolidés                            | Web (HTTPS/JSON) | Génération de rapports consolidés                                        |
+|                         | - Voir les données de performance des instances                | Web (HTTPS/JSON) | Statistiques (Tableaux de bord)                                          |
 
-Format/Protocole : Interface graphique web
+**Détails Techniques** :
 
-<!-- TODO update -->
+- **Authentification** : JWT via Kong Gateway
+- **Cache** : Redis pour les données fréquemment consultées
+- **Orchestration** : Docker avec scaling horizontal
+- **Monitoring** : Prometheus + génération de rapports PDF
 
 ![Usecases](../out/documentation/UML/Usecases/ContexteMétier/ContexteMétier.png)
 
@@ -224,7 +230,7 @@ Format/Protocole : Interface graphique web
 | **Product Service**   | Gère les produits, utilise PostgreSQL et Redis.              |
 | **Reporting Service** | Génère des rapports, communique avec PostgreSQL.             |
 | **PostgreSQL**        | Base de données relationnelle principale.                    |
-| **Redis**             | Stockage temporaire pour cache et paniers.                   |
+| **Redis**             | Stockage temporaire pour cache.                              |
 | **Prometheus**        | Collecte de métriques pour le monitoring.                    |
 
 ## Description
@@ -494,7 +500,7 @@ Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les pri
 | **API REST**         | Point d’entrée pour les intégrations externes |
 | **Conteneur Docker** | Unité isolée pour l’exécution d’un composant  |
 
-# 12. Analyse des load tests
+# 13. Analyse des load tests
 
 Dans le cadre du lab 4 et du lab 5, des tests de load ont été faits pour avoir des données sur les changements qu'auraient un load balancer puis une API gateway.
 
@@ -548,12 +554,14 @@ Pour les tests d'api gateway, 16 configurations différentes ont été testées.
 
 Aussi pour comparer aux données prélevées sur grafana, on peut voir comment les différentes config affectent la quantité de resources utilisés par le CPU. Comparé à avant l'implémentation d'un load balancer et d'un api gateway, on peut voir que l'utilisatilon de cpu est grandement diminué.
 
+Spécifiquement dans la configuration avec un accent sur un service (1ere capture d'écran), on peut voir que l'utilisation de cpu est encore plus basse.
+
+![LoadTestsLab5_other_focused_cpu](../documentation/monitoring/load_tests_lab5/others_focused/others_focused-50vus-1min_cpu.png)
 ![LoadTestsLab5_w_high_cpu](../documentation/monitoring/load_tests_lab5/all_w_high/all_w_high-50vus-1min_cpu.png)
 
-Spécifiquement dans la configuration avec un accent sur un service, on peut voir que l'utilisation de cpu est encore plus basse.
-![LoadTestsLab5_other_focused_cpu](../documentation/monitoring/load_tests_lab5/others_focused/others_focused-50vus-1min_cpu.png)
+# 14. Tous les diagrammes faits pour ce rapport
 
-# 13. Diagrammes restants
+La section suivante regroupe tous les diagrammes présenté dans ce rapport.
 
 ![BlockViewLevel1](../out/documentation/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 

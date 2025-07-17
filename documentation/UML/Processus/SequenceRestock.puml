@@ -10,91 +10,112 @@ skinparam {
 actor "Employé" as employe <<Person>>
 participant "Interface Web" as interface
 participant "Kong Gateway" as kong
-participant "StockController" as controller
-participant "StockService" as service
-database "MySQL" as db
+participant "ProductController" as controller
+participant "ProductService" as service
+database "PostgreSQL" as db
 database "Redis" as cache
 
 == Consultation du Stock ==
 
 employe -> interface : "Consulter stock"
 activate interface
-interface -> kong : GET /api/v1/stock
+interface -> kong : GET /api/v2/products/stock/1
 activate kong
 
-kong -> controller : get_all_products() [JWT]
-activate controller
-controller -> cache : Check redis_key:stock_status
-activate cache
+kong -> kong : Vérifie API Key
 
-alt Données en cache
-  cache --> controller : CacheHit (JSON)
-  deactivate cache
-  controller --> kong : 200 (cached)
-else Données absentes
-  cache --> controller : CacheMiss
-  deactivate cache
-  controller -> service : get_stock_status()
-  activate service
-  service -> db : EXEC get_stock_procedure()
-  activate db
-  db --> service : ResultSet
-  deactivate db
-  service -> cache : SET redis_key:stock_status (TTL=5min)
+alt API Key invalide
+  kong -> interface : 401 Unauthorized
+  deactivate kong
+  interface --> employe : Erreur authentification
+  deactivate interface
+else API Key valide
+  kong -> controller : GET /api/v2/products/stock/1
+  activate controller
+  controller -> cache : GET product:stock:store_1
   activate cache
-  cache --> service : OK
-  deactivate cache
-  service --> controller : StockDTO[]
-  deactivate service
-  controller --> kong : 200 OK
-end
 
-kong --> interface : Response (JSON)
-deactivate kong
-interface --> employe : Affiche tableau des stocks
-deactivate interface
+  alt Données en cache
+    cache -> controller : CacheHit
+    deactivate cache
+    controller -> kong : 200 OK (cached)
+  else Données absentes
+    cache -> controller : CacheMiss
+    deactivate cache
+    controller -> service : stock_status(store_id=1)
+    activate service
+
+    service -> db : SELECT products
+    activate db
+    db -> service : ResultSet
+    deactivate db
+
+    service -> cache : SET product:stock:store_1
+    activate cache
+    cache -> service : OK
+    deactivate cache
+
+    service -> controller : Données paginées
+    deactivate service
+    controller -> kong : 200 OK
+  end
+
+  kong -> interface : Response JSON
+  deactivate kong
+  interface -> employe : Affiche stock
+  deactivate interface
+end
 
 == Réapprovisionnement ==
 
-employe -> interface : "Demande réappro [SKU123, Qty=10]"
+employe -> interface : "Demande réappro"
 activate interface
-interface -> kong : POST /api/v1/stock/replenish
+interface -> kong : POST /api/v2/products/p/store/1/restock
 activate kong
 
-kong -> controller : process_replenishment()
-activate controller
-controller -> service : verify_and_transfer_stock(SKU123, 10)
-activate service
+kong -> kong : Vérifie API Key
 
-service -> db : START TRANSACTION
-service -> db : CALL check_stock_availability('SKU123', 10)
-activate db
+alt API Key invalide
+  kong -> interface : 401 Unauthorized
+  deactivate kong
+  interface -> employe : Erreur authentification
+  deactivate interface
+else API Key valide
+  kong -> controller : POST /api/v2/products/p/store/1/restock
+  activate controller
+  controller -> service : restock_store_products()
+  activate service
 
-alt Stock disponible
-  db --> service : SUCCESS
-  service -> db : EXEC transfer_stock('SKU123', 10)
-  db --> service : CONFIRMED
-  service -> cache : DEL redis_key:stock_status
-  activate cache
-  cache --> service : 1
-  deactivate cache
-  service --> controller : ReplenishmentConfirmation
-  deactivate service
-  controller --> kong : 202 Accepted
-else Stock insuffisant
-  db --> service : ERROR
-  service -> db : ROLLBACK
-  db --> service : DONE
-  service --> controller : ReplenishmentError
-  deactivate service
-  controller --> kong : 409 Conflict
-end
+  service -> db : BEGIN
+  activate db
+  service -> db : Vérifie stock
+  db -> service : Quantité
 
-deactivate db
-deactivate controller
-kong --> interface : Response
-deactivate kong
-interface --> employe : Notification résultat
-deactivate interface
+  alt Stock suffisant
+    service -> db : UPDATE stock
+    db -> service : OK
+    service -> db : COMMIT
+    db -> service : Confirmé
 
-@enduml
+    service -> cache : DEL cache keys
+    activate cache
+    cache -> service : OK
+    deactivate cache
+
+    service -> controller : Succès
+    deactivate service
+    controller -> kong : 202 Accepted
+  else Stock insuffisant
+    service -> db : ROLLBACK
+    db -> service : Confirmé
+    service -> controller : Erreur
+    deactivate service
+    controller -> kong : 409 Conflict
+  end
+
+  deactivate db
+  deactivate controller
+  kong -> interface : Résultat
+  deactivate kong
+  interface -> employe : Notification
+  deactivate interface

@@ -14,6 +14,7 @@ skinparam {
 
 actor "Siège Social" as siege
 actor "Employés\nde magasin" as employes
+actor "Employés\nde magasin" as admin
 
 rectangle "Système Central" as system {
   usecase "Recherche de stock" as products
@@ -24,18 +25,20 @@ rectangle "Système Central" as system {
   usecase "Enregistrer une commande" as ec
   usecase "Annuler une commande" as ac
   usecase "Génération de\nrapports consolidés" as rapports
-  usecase "Tableaux de bord\nde performance" as dashboard
+  usecase "Voir les données de\n performance des instances" as stats
+  usecase "Déployer les instances avec\n une configuration custom" as custom
   
 }
 
 products --> cp
 products --> cpr
 products --> rp
-siege --> dashboard : "Web (HTTPS/JSON)\nConsultation performance"
-dashboard --> rapports
-employes --> products : "Web (HTTPS/JSON)\nSaisie des ventes"
-employes --> orders : "Web (HTTPS/JSON)\nSaisie des ventes"
+siege --> rapports : "Web (HTTPS/JSON)"
+employes --> products : "Web (HTTPS/JSON)"
+employes --> orders : "Web (HTTPS/JSON)"
 orders --> ec
 orders --> ac
+admin --> stats : "Web (HTTPS/JSON)"
+admin --> custom : "Web (HTTPS/JSON)"
 
 @enduml

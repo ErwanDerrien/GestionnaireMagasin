@@ -20,44 +20,54 @@ database "Redis" as cache
 ge -> in : "Sauvegarder une commande"
 in -> api : POST /orders\n{produits, magasin}
 activate api
-api -> co : create_order() [JWT]
-activate co
 
-co -> cache : Vérifie stock produitX
-activate cache
-alt Données invalides
-    cache --> co : Erreur
-    deactivate cache
-    co --> api : 400 Bad Request
-else
-    cache --> co : Stock disponible
-    deactivate cache
-    co -> se : save_order(produits, magasin)
-    activate se
+api -> api : Vérifie API Key
 
-    se -> db : START TRANSACTION
-    se -> db : INSERT commande
-    se -> db : UPDATE stock
-    alt Erreur SQL
-        se -> db : ROLLBACK
-        db --> se : Confirmé
-        se --> co : Erreur 500
-    else Succès
-        se -> db : COMMIT
-        db --> se : Confirmé
-        se -> cache : Invalide cache
-        activate cache
-        cache --> se : OK
+alt API Key invalide
+    api -> in : 401 Unauthorized
+    deactivate api
+    in -> ge : Erreur authentification
+    deactivate in
+else API Key valide
+    api -> co : POST /orders\n{produits, magasin}
+    activate co
+
+    co -> cache : Vérifie stock produitX
+    activate cache
+    alt Données invalides
+        cache -> co : Erreur
         deactivate cache
-        se --> co : Succès 201
-    end
-    deactivate se
-end
+        co -> api : 400 Bad Request
+    else
+        cache -> co : Stock disponible
+        deactivate cache
+        co -> se : save_order(produits, magasin)
+        activate se
 
-deactivate co
-api --> in : Réponse
-deactivate api
-in --> ge : Notification
-deactivate in
+        se -> db : START TRANSACTION
+        se -> db : INSERT commande
+        se -> db : UPDATE stock
+        alt Erreur SQL
+            se -> db : ROLLBACK
+            db -> se : Confirmé
+            se -> co : Erreur 500
+        else Succès
+            se -> db : COMMIT
+            db -> se : Confirmé
+            se -> cache : Invalide cache
+            activate cache
+            cache -> se : OK
+            deactivate cache
+            se -> co : Succès 201
+        end
+        deactivate se
+    end
+
+    deactivate co
+    api -> in : Réponse
+    deactivate api
+    in -> ge : Notification
+    deactivate in
+end
 
 @enduml

@@ -1,47 +1,65 @@
 @startuml ProcessServicesSwitchCase
 
+skinparam {
+  BackgroundColor #F5F5F5
+  ParticipantBackgroundColor #FFFFFF
+  ArrowColor #1E90FF
+}
+
 start
-:Recevoir requête utilisateur;
+:Recevoir requête HTTP;
+
+partition KongGateway {
+  :Vérifier API Key via header 'x-api-key';
+  if (Clé valide ?) then (oui)
+    :Extraire JWT si /login;
+    :Router vers le bon service;
+  else (non)
+    :Retourner 401 Unauthorized;
+    stop
+  endif
+}
 
 partition AuthService {
   :Si route = /login;
-  :Lire username, password, store_id;
-  :Appeler login(username, password, store_id);
-  :Retourner réponse d'authentification;
+  :Valider JWT ou credentials;
+  if (Authentification réussie) then (oui)
+    :Générer nouveau JWT;
+    :Retourner 200 avec token;
+  else (non)
+    :Retourner 403 Forbidden;
+  endif
 }
 
 partition ProductService {
-  :Si route = /products ou /products/<store_id> ou /products/<store_id>/<search_term>;
-  switch (Type de requête produit)
-    case ("liste stock")
-      :Appeler stock_status(store_id?);
-    case ("recherche")
-      :Appeler search_product_service(search_term);
-    case ("restock")
-      :Appeler restock_store_products(store_id);
-    case (autre)
-      :Retourner erreur produit non supporté;
+  :Si route = /products/**;
+  switch (Type de requête)
+  case (GET /products)
+    :Vérifier scope 'products:read';
+    :Appeler get_products();
+  case (POST /products/restock)
+    :Vérifier scope 'products:write';
+    :Appeler restock_products();
+  case (autre)
+    :Retourner 405 Not Allowed;
   endswitch
-  :Retourner données produit;
+  :Retourner réponse;
 }
 
 partition OrderService {
-  :Si route = /orders ou /orders/<order_id> ou /orders/report;
-  switch (Type de requête commande)
-    case ("création commande")
-      :Lire données commande;
-      :Appeler save_order(data);
-    case ("retour commande")
-      :Lire order_id;
-      :Appeler return_order(order_id);
-    case ("statut commandes")
-      :Appeler orders_status(store_id?);
-    case ("rapport commandes")
-      :Appeler generate_orders_report();
-    case (autre)
-      :Retourner erreur commande non supportée;
+  :Si route = /orders/**;
+  switch (Type de requête)
+  case (POST /orders)
+    :Vérifier scope 'orders:create';
+    :Valider payload;
+    :Appeler create_order();
+  case (GET /orders/report)
+    :Vérifier scope 'orders:read';
+    :Appeler generate_report();
+  case (autre)
+    :Retourner 405 Not Allowed;
   endswitch
-  :Retourner données commande;
+  :Retourner réponse;
 }
 
 stop

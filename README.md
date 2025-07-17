@@ -4,10 +4,9 @@
 
 Documentation technique pour cette version du laboratoire disponible dans ce README.md. Cette documentation est en partie pour des personnes voulant utiliser et tester cette application. Il y a des commandes qui sont utiles pour le développement de l'application et servent de référence durant l'avancement du projet.
 
-Note importante concernant l'absence de documents : 
-- Le rapport d'analyse de données n'est pas inclus dans cette version
-- Il sera produit conjointement avec le rapport de l'étape 2 et disponible via le git tag correspondant
-- De nombreux tests sont documentés et serviront de base au rapport final
+Le rapport de l'étape 2 se trouve à la racine.
+
+La documentation de load tests est disponible dans le répertoire `documentation/monitoring` sous forme de pdfs.
 
 ## Installation et démarrage
 

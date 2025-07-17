@@ -10,83 +10,66 @@ skinparam {
 }
 
 actor "Gestionnaire" as gestionnaire <<Person>>
-participant "Interface Web" as dashboard
+participant "Dashboard Admin" as dashboard
 participant "Kong Gateway" as kong
-participant "ReportController" as controller
-participant "AnalyticsService" as service
+participant "OrderController" as order_controller
+participant "OrderService" as service
 database "PostgreSQL" as db
 database "Redis" as cache
 
-== Génération du Rapport ==
+== Génération Rapport ==
 
-gestionnaire -> dashboard : "Générer rapport mensuel"
+gestionnaire -> dashboard : Générer rapport
 activate dashboard
-dashboard -> kong : GET /api/v1/reports?period=monthly
+dashboard -> kong : GET /api/v2/orders/o/report
 activate kong
 
-kong -> controller : generate_monthly_report() [JWT]
-activate controller
+kong -> kong : Vérifie API Key
 
-controller -> cache : GET report:monthly
-activate cache
-
-alt Rapport en cache
-    cache --> controller : Hit (JSON)
-    deactivate cache
-    controller --> kong : 200 OK (cached)
-else
-    cache --> controller : Miss
-    deactivate cache
-    controller -> service : generate_analytics_report()
-    activate service
-
-    service -> db : EXEC generate_monthly_report()
-    activate db
-    db --> service : ResultSet
-    deactivate db
-
-    service -> cache : SET report:monthly (TTL=1h)
+alt API Key invalide
+    kong -> dashboard : 401 Unauthorized
+    deactivate kong
+    dashboard -> gestionnaire : Erreur authentification
+    deactivate dashboard
+else API Key valide
+    kong -> order_controller : GET /api/v2/orders/o/report
+    activate order_controller
+    order_controller -> cache : GET report:orders
     activate cache
-    cache --> service : OK
-    deactivate cache
 
-    service --> controller : ReportDTO
-    deactivate service
-    controller --> kong : 200 OK
+    alt Données en cache
+        cache -> order_controller : Hit (JSON)
+        deactivate cache
+        order_controller -> kong : 200 OK (cached)
+    else
+        cache -> order_controller : Miss
+        deactivate cache
+        order_controller -> service : generate_orders_report()
+        activate service
+
+        service -> db : SELECT ventes par magasin
+        activate db
+        db -> service : Données brutes
+        deactivate db
+
+        service -> db : SELECT top produits
+        activate db
+        db -> service : Top produits
+        deactivate db
+
+        service -> service : Formatage des données (ventes, produits, stock)
+        service -> cache : SET report:orders (TTL=1h)
+        activate cache
+        cache -> service : OK
+        deactivate cache
+
+        service -> order_controller : Rapport formaté
+        deactivate service
+        order_controller -> kong : 200 OK
+    end
+
+    kong -> dashboard : Rapport JSON (ventes, produits, stock)
+    deactivate kong
+    dashboard -> gestionnaire : Affiche rapport
+    deactivate dashboard
 end
-
-kong --> dashboard : Response (JSON)
-deactivate kong
-
-dashboard -> dashboard : Formatage des données
-dashboard --> gestionnaire : Affiche rapport interactif
-deactivate dashboard
-
-== Export PDF ==
-
-gestionnaire -> dashboard : "Exporter en PDF"
-activate dashboard
-dashboard -> kong : POST /api/v1/reports/export
-activate kong
-
-kong -> controller : export_to_pdf()
-activate controller
-controller -> service : generate_pdf_export()
-activate service
-
-service -> db : GET report_data
-activate db
-db --> service : Raw data
-deactivate db
-
-service --> controller : PDF bytes
-deactivate service
-controller --> kong : 200 (application/pdf)
-deactivate controller
-
-kong --> dashboard : Fichier PDF
-deactivate kong
-dashboard --> gestionnaire : Téléchargement PDF
-deactivate dashboard
-
-@enduml
