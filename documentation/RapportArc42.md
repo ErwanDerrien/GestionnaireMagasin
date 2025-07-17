@@ -1,6 +1,8 @@
-# Liens des repos Github :
+# Liens du repo Github :
 
 - https://github.com/ErwanDerrien/GestionnaireMagasin
+
+Les versions 3, 4 et 5 du projet sont toutes disponibles en regardant les tags.
 
 # 1. Introduction et buts
 
@@ -469,6 +471,7 @@ Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les pri
 | **DDD**  | Domain-Driven Design                                                          |
 | **MVC**  | Modèle-Vue-Contrôleur                                                         |
 | **ACID** | Propriétés des transactions SQL : Atomicité, Cohérence, Isolation, Durabilité |
+| **VUS**  | Virtual Users                                                                 |
 
 ## Technologies
 
@@ -491,9 +494,66 @@ Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les pri
 | **API REST**         | Point d’entrée pour les intégrations externes |
 | **Conteneur Docker** | Unité isolée pour l’exécution d’un composant  |
 
-![LoadTestsLab4](../documentation/monitoring/load_tests_lab4/hash_10_instances/hash_10_instances-10vus-1min.pdf)
+# 12. Analyse des load tests
 
-# 12. Diagrammes restants
+Dans le cadre du lab 4 et du lab 5, des tests de load ont été faits pour avoir des données sur les changements qu'auraient un load balancer puis une API gateway.
+
+Pour effectuer ces tests, une multitude de scripts ont été écrits pour tester extensivement les configurations.
+
+- `./monitoring/run_all_tests.sh`
+- `./monitoring/automate_load_tests.sh`
+- `./monitoring/generate_prometheus_graphs.sh`
+- `./monitoring/load_test.sh`
+
+**Tous les résultats de tests automatiques sont documentées sous forme de pdf dans `documentation/monitoring`.** Dans ces pds, ont peut retrouver l'information suivante pour chacune des configurations :
+
+- Requests per second
+- Memory (mb)
+- CPU (%)
+- Average latency (s)
+- Error rate (%)
+
+Dans les sections qui suivent, seulement quelques éléments sont analysés pour le rapport dans le but de souligner les différences majeures entre les versions.
+
+## Tests avant implémentations
+
+![LoadTestsLab3](../documentation/monitoring/before_round_robin_least_con/k61mBefore.png)
+
+## Tests après load balancer
+
+Pour le laboratoire 4, nous avons implémenté un système de load balancer avec nginx. Avec les scripts créés, il a été facile d'implémenter le testage de configurations spéciales.
+
+Les configurations testées sont :
+
+- Round Robin
+- Round Robin Least Conn
+- Weighted
+- Hash
+
+Le script `run_all_tests.sh` permet de tester chaque configuration, avec 1, 5, 10 et 15 instances de serveur. Pour tous les nombres d'instances de serveur, 3 tests ont été faits avec un nombres d'utilisateurs simulés dans les tests. Chaque config a été testée avec 1 virtual user (VUS), puis 10 puis 50.
+
+Initialement à cause d'une configuration incomplète, il a été possible d'observer comment le système gère les pannes d'instances. En cas de panne, il a été observé que les instances qui étaient bien démarrées avaient bien pris la relève. Les données récoltées n'ont pas été sauvegardée, et actuellement nous avons une version stable avec laquelle il n'est pas facilement possible de retester cette mise en situation.
+
+Une chose intéressante observée est que le nombre d'utilisateur simultanné à un grand impact sur la latence. Dans le premier graph on peut voir comment la latence moyenne augmente, et dans le deuxième graphique, comment après un spike le temps d'attente diminue drastiquement. La seule chose qui différencie les deux graphiques est le nombre d'utilisateur simultanés.
+
+![LoadTestsLab4_50vus](../documentation/monitoring/load_tests_lab4/lc_10_instances/lc_10_instances-1vus-1min-average_latency.png)
+![LoadTestsLab4_1vus](../documentation/monitoring/load_tests_lab4/lc_10_instances/lc_10_instances-50vus-1min-average_latency.png)
+
+## Tests après API gateway
+
+Pour les tests d'api gateway, 16 configurations différentes ont été testées. Une chose observée dans les tests est la baisse de latence générale lorsque tous les services ont beaucoup d'instances comparé à une confique concentrée sur un endpoint spécifique.
+
+![LoadTestsLab5_w_high](../documentation/monitoring/load_tests_lab5/all_w_high/all_w_high-50vus-1min_average_latency.png)
+![LoadTestsLab5_other_focused](../documentation/monitoring/load_tests_lab5/others_focused/others_focused-50vus-1min_average_latency.png)
+
+Aussi pour comparer aux données prélevées sur grafana, on peut voir comment les différentes config affectent la quantité de resources utilisés par le CPU. Comparé à avant l'implémentation d'un load balancer et d'un api gateway, on peut voir que l'utilisatilon de cpu est grandement diminué.
+
+![LoadTestsLab5_w_high_cpu](../documentation/monitoring/load_tests_lab5/all_w_high/all_w_high-50vus-1min_cpu.png)
+
+Spécifiquement dans la configuration avec un accent sur un service, on peut voir que l'utilisation de cpu est encore plus basse.
+![LoadTestsLab5_other_focused_cpu](../documentation/monitoring/load_tests_lab5/others_focused/others_focused-50vus-1min_cpu.png)
+
+# 13. Diagrammes restants
 
 ![BlockViewLevel1](../out/documentation/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 
