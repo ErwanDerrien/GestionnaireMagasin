@@ -12,51 +12,106 @@ skinparam {
     InterfaceBorderColor #1E90FF
 }
 
+left to right direction
 
-rectangle "Serveur physique" as sp {
-    rectangle "Docker Container" as dc {
+' ==== Clients ====
+rectangle "Clients" as clients {
+    artifact "Site Web" as web
+}
 
-        rectangle "Serveur Flask (Roule à partir d'un Dockerfile)" as sc {
-            component "app.py" as sm
-            rectangle Services {
-                component "product_services.py" as products #FFD700
-                component "orders_services.py" as orders #F55700
-                component "login_services.py" as login #F56660
+' ==== Magasin ====
+rectangle "Magasin" as mag {
+    artifact "Site Web" as web
+    rectangle "Caisse 1" as c1
+    rectangle "Caisse 2" as c2
+    rectangle "Caisse 3" as c3
+}
 
+rectangle "Serveur physique" {
 
-            }
-            rectangle DAO {
-                component "product_DAO.py" as pdao
-                component "order_DAO.py" as odao
-            }
-        }
-        database "database.db" as db #228B22
+    ' ==== Containers ====
+    rectangle "Kong Gateway" as kong {
+        interface "API:80" as api
+        interface "Admin:8001" as admin
     }
-    dc -- sc : "Hosté sur le port :8080"
+
+    rectangle "Auth Service" as auth #FFAAAA {
+        component "Instance 1\n:8080" as auth1
+        component "Instance 2\n:8081" as auth2
+    }
+
+    rectangle "Product Service" as prod #AAFFAA {
+        component "Instance 1\n:8080" as prod1
+        component "Instance 2\n:8081" as prod2
+    }
+
+    rectangle "Order Service" as order #AAAAFF {
+        component "Instance 1\n:8080" as order1
+        component "Instance 2\n:8081" as order2
+    }
+
+    rectangle "Other Service" as other #FFAAFF {
+        component "Instance 1\n:8080" as other1
+    }
+
+    rectangle "Monitoring" as monit {
+        component "Prometheus\n:9090" as prom
+        component "Redis Exporter\n:9121" as rexp
+    }
+
+    database "PostgreSQL\n:5432" as pg
+    database "Redis\n:6379" as redis
 }
 
-rectangle "Caisse 1" as c1
-rectangle "Caisse 2" as c2
-rectangle "Caisse 3" as c3
 
-cloud {
-    component "CI/CD Lab 1" as cicd #FF6347
-    artifact "Site Web" as sw
-}
-storage "Stock dans les enrepôts" as se
 
-Services --> DAO
+storage "Stock Physique" as stock
 
-db <-- pdao : ORM
-db <-- odao : ORM
+' ==== Connexions ====
+' Clients vers Kong
+web -r-> api
+c1 --> web
+c2 --> web
+c3 --> web
 
-se -- db : Représentation digitale/physique
-sp - dc : Port ouvert
-sw - sp : HTTP
-sm - sc
-sm -- Services
-sw -- c1
-sw -- c2 : "API Rest"
-sw -- c3
+' Kong vers Services
+api -d-> auth1 : /auth
+api -d-> auth2
+api -d-> prod1 : /products
+api -d-> prod2
+api -d-> order1 : /orders
+api -d-> order2
+api -d-> other1 : /other
+
+' Services vers Bases
+auth1 -u-> pg
+auth2 -u-> pg
+prod1 -u-> pg
+prod2 -u-> pg
+order1 -u-> pg
+order2 -u-> pg
+other1 -u-> pg
+
+auth1 -u-> redis
+auth2 -u-> redis
+prod1 -u-> redis
+prod2 -u-> redis
+order1 -u-> redis
+order2 -u-> redis
+other1 -u-> redis
+
+' Monitoring
+prom -u-> auth1 : /metrics
+prom -u-> auth2
+prom -u-> prod1
+prom -u-> prod2
+prom -u-> order1
+prom -u-> order2
+prom -u-> other1
+prom -u-> rexp
+rexp -u-> redis
+
+' Stock
+stock -u-> pg : Sync
 
 @enduml

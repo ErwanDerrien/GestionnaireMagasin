@@ -1,32 +1,63 @@
 @startuml Sauvegarder une commande
 
-actor Employé as ge
-participant Interface as in
-participant API as api
-participant Controller as co
-participant Service as se
-database SQLite as db
+skinparam {
+    BackgroundColor #F5F5F5
+    ActorBorderColor #333
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantBorderColor #666
+    ArrowColor #1E90FF
+    SequenceMessageAlign reverse
+}
+
+actor "Employé" as ge
+participant "Interface Caisse" as in
+participant "Kong Gateway" as api
+participant "OrderController" as co
+participant "OrderService" as se
+database "PostgreSQL" as db
+database "Redis" as cache
 
 ge -> in : "Sauvegarder une commande"
-in -> api : POST /orders
-api -> co : create_order_route() : body a store_id et products
-co -> se : save_order(products, store_id)
+in -> api : POST /orders\n{produits, magasin}
+activate api
+api -> co : create_order() [JWT]
+activate co
 
-activate se
-se -> db : Vérifie produits et stock
+co -> cache : Vérifie stock produitX
+activate cache
 alt Données invalides
-    se --> co : Retourne erreur de validation
-else Produits indisponibles
-    se --> co : Retourne erreurs de stock
-else Succès
-    se -> db : Crée commande
-    se -> db : Met à jour stock
-    se --> co : Retourne succès avec détails commande
-end
-deactivate se
+    cache --> co : Erreur
+    deactivate cache
+    co --> api : 400 Bad Request
+else
+    cache --> co : Stock disponible
+    deactivate cache
+    co -> se : save_order(produits, magasin)
+    activate se
 
-co --> api : Réponse HTTP
-api --> in : Affiche résultat
-in --> ge : Notification succès/échec
+    se -> db : START TRANSACTION
+    se -> db : INSERT commande
+    se -> db : UPDATE stock
+    alt Erreur SQL
+        se -> db : ROLLBACK
+        db --> se : Confirmé
+        se --> co : Erreur 500
+    else Succès
+        se -> db : COMMIT
+        db --> se : Confirmé
+        se -> cache : Invalide cache
+        activate cache
+        cache --> se : OK
+        deactivate cache
+        se --> co : Succès 201
+    end
+    deactivate se
+end
+
+deactivate co
+api --> in : Réponse
+deactivate api
+in --> ge : Notification
+deactivate in
 
 @enduml

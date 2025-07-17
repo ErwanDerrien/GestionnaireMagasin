@@ -8,72 +8,92 @@ skinparam {
 }
 
 actor "Employé" as employe <<Person>>
-participant "Interface\nGraphique" as interface
-participant "API REST" as api
+participant "Interface Web" as interface
+participant "Kong Gateway" as kong
 participant "StockController" as controller
 participant "StockService" as service
-database "Base de Données\nMySQL" as db
+database "MySQL" as db
+database "Redis" as cache
 
 == Consultation du Stock ==
 
-employe -> interface : "Consulter stock central"
+employe -> interface : "Consulter stock"
 activate interface
-interface -> api : GET /products
-activate api
-api -> controller : get_all_products_route()
+interface -> kong : GET /api/v1/stock
+activate kong
+
+kong -> controller : get_all_products() [JWT]
 activate controller
-controller -> service : stock_status()
-activate service
-service -> db : SELECT product_id, name, quantity,\nSUM(quantity) as total FROM stock\nGROUP BY product_id, name
-activate db
-db --> service : ResultSet
-deactivate db
-service --> controller : List<StockDTO>
-deactivate service
-controller --> api : ResponseEntity<List<StockDTO>>
-deactivate controller
-api --> interface : 200 OK (JSON)
-deactivate api
-interface --> employe : Affichage tableau des stocks
+controller -> cache : Check redis_key:stock_status
+activate cache
+
+alt Données en cache
+  cache --> controller : CacheHit (JSON)
+  deactivate cache
+  controller --> kong : 200 (cached)
+else Données absentes
+  cache --> controller : CacheMiss
+  deactivate cache
+  controller -> service : get_stock_status()
+  activate service
+  service -> db : EXEC get_stock_procedure()
+  activate db
+  db --> service : ResultSet
+  deactivate db
+  service -> cache : SET redis_key:stock_status (TTL=5min)
+  activate cache
+  cache --> service : OK
+  deactivate cache
+  service --> controller : StockDTO[]
+  deactivate service
+  controller --> kong : 200 OK
+end
+
+kong --> interface : Response (JSON)
+deactivate kong
+interface --> employe : Affiche tableau des stocks
 deactivate interface
 
 == Réapprovisionnement ==
 
-employe -> interface : "Demander réapprovisionnement\n[Produit X, Quantité Y]"
+employe -> interface : "Demande réappro [SKU123, Qty=10]"
 activate interface
-interface -> api : PUT /products/store/<int:store_id>/restock
-activate api
-api -> controller : restock_store_route(store_id)
+interface -> kong : POST /api/v1/stock/replenish
+activate kong
+
+kong -> controller : process_replenishment()
 activate controller
-controller -> service : restock_store_products(productId, quantity)
+controller -> service : verify_and_transfer_stock(SKU123, 10)
+activate service
 
-alt Stock suffisant
-  activate service
-  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = ?
-  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = central_store_id
-  db --> service : store_products_list
-  db --> service : central_store_products_list
-  service -> service : transfert de stock de central_store_products_list à store_products_list.
-  service -> db : UPDATE store_products_list and central_store_products_list
-  db --> service : rows updated
-  service --> controller : ReplenishmentResponse
+service -> db : START TRANSACTION
+service -> db : CALL check_stock_availability('SKU123', 10)
+activate db
+
+alt Stock disponible
+  db --> service : SUCCESS
+  service -> db : EXEC transfer_stock('SKU123', 10)
+  db --> service : CONFIRMED
+  service -> cache : DEL redis_key:stock_status
+  activate cache
+  cache --> service : 1
+  deactivate cache
+  service --> controller : ReplenishmentConfirmation
   deactivate service
-  controller --> api : 200 OK
-  api --> interface : "Demande enregistrée"
+  controller --> kong : 202 Accepted
 else Stock insuffisant
-  activate service
-  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = ?
-  service -> db : SELECT quantity FROM stock\nWHERE product_id = ? AND store_id = central_store_id
-  db --> service : store_products_list
-  db --> service : central_store_products_list
-  service -> service : Pas assez de produits dans central_store_products_list
-
-  controller --> api : 400 Le restock a échoué
-  api --> interface : "Stock suffisant"
+  db --> service : ERROR
+  service -> db : ROLLBACK
+  db --> service : DONE
+  service --> controller : ReplenishmentError
+  deactivate service
+  controller --> kong : 409 Conflict
 end
 
+deactivate db
 deactivate controller
-deactivate api
+kong --> interface : Response
+deactivate kong
 interface --> employe : Notification résultat
 deactivate interface
 

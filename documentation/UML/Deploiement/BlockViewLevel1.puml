@@ -7,15 +7,16 @@ skinparam {
   ComponentFontColor #333
 }
 
-rectangle "Docker container" {
-  rectangle "Serveur Flask" as sf
+rectangle "Serveur physique" {
+  rectangle "Instances Docker Kong" as sk
+  rectangle "Instances Docker Flask" as sf
   database "SQLite" as db
 }
 
+rectangle "Site Web" as ui
 
-rectangle "Site Web LitElements Serveur node" as ui
-
+ui --> sk : http
+sk "1" --> "*" sf : API Gateway
 sf --> db : ORM
-ui --> sf : http
 
 @enduml

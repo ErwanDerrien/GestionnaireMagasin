@@ -1,36 +1,59 @@
 @startuml Deployment View
-actor Caisser as car
-actor Gestionnaire as ge
-actor Dirigeants as di
 
+skinparam {
+    BackgroundColor #F5F5F5
+    ActorBorderColor #333
+    ComponentBorderColor #666
+    ArrowColor #1E90FF
+}
 
-cloud "Site Web" as sw
+left to right direction
 
-artifact "Caisse\n(Navigateur)" as ca
-artifact "Ordinateur\n(Navigateur)" as or
+actor Caissier as caissier <<Person>>
+actor Gestionnaire as gestionnaire <<Person>>
+actor Dirigeant as dirigeant <<Person>>
 
-artifact Serveur {
-    artifact "Docker Container " {
-        artifact "Serveur Flask" {
-            artifact API as api
-            artifact Controller as co
-            artifact Services as se
-        }
-        database Database as db
+cloud "Frontends" {
+    component "Site Web" as site
+}
+
+node "Serveur d'Application" {
+    frame "Docker Cluster" {
+        [Kong Gateway] as kong
+        [Auth Service] as auth
+        [Order Service] as order
+        [Product Service] as product
+        [Reporting Service] as report
+
+        database "PostgreSQL" as pg
+        database "Redis" as redis
     }
 }
 
-co - api
-se - co
-se -- db : "ORM"
+' Connexions
 
-sw -- api : "API Rest"
+caissier --> site : HTTPS
+gestionnaire --> site : HTTPS
+dirigeant --> site : HTTPS
 
-sw -- or : "HTTPS"
-sw -- ca : "HTTPS"
+site --> kong : /api/v2
 
-ca -- car
-or -- ge
-or -- di
+kong --> auth : /auth
+kong --> order : /orders
+kong --> product : /products
+kong --> report : /reports
+
+order --> pg : ORM
+product --> pg : ORM
+report --> pg : SQL
+
+order --> redis : Panier
+product --> redis : Cache
+
+cloud "Monitoring" {
+    [Prometheus] as prom
+}
+
+prom --> kong : Metrics
 
 @enduml

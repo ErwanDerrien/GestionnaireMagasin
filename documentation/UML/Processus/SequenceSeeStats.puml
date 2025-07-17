@@ -1,58 +1,92 @@
 @startuml UC1 et UC3 - Génération et visualistion de rapport
 
-' === Personnalisation visuelle ===
 skinparam {
     BackgroundColor #F5F5F5
     ActorBorderColor #333
     ParticipantBackgroundColor #FFFFFF
     ParticipantBorderColor #666
     ArrowColor #1E90FF
+    SequenceMessageAlign reverse
 }
 
-actor "Gestionnaire" as ge
-participant "Interface\nGraphique" as ui
-participant "API REST" as api
+actor "Gestionnaire" as gestionnaire <<Person>>
+participant "Interface Web" as dashboard
+participant "Kong Gateway" as kong
 participant "ReportController" as controller
-participant "ReportService" as service
-database "Base de Données\nMySQL" as db
+participant "AnalyticsService" as service
+database "PostgreSQL" as db
+database "Redis" as cache
 
 == Génération du Rapport ==
 
-ge -> ui : "Accéder aux informations de gestion"
-activate ui
+gestionnaire -> dashboard : "Générer rapport mensuel"
+activate dashboard
+dashboard -> kong : GET /api/v1/reports?period=monthly
+activate kong
 
-ui -> api : GET /orders/report
-activate api
-
-api -> controller : get_orders_report()
+kong -> controller : generate_monthly_report() [JWT]
 activate controller
 
-controller -> service : generate_orders_report()
+controller -> cache : GET report:monthly
+activate cache
+
+alt Rapport en cache
+    cache --> controller : Hit (JSON)
+    deactivate cache
+    controller --> kong : 200 OK (cached)
+else
+    cache --> controller : Miss
+    deactivate cache
+    controller -> service : generate_analytics_report()
+    activate service
+
+    service -> db : EXEC generate_monthly_report()
+    activate db
+    db --> service : ResultSet
+    deactivate db
+
+    service -> cache : SET report:monthly (TTL=1h)
+    activate cache
+    cache --> service : OK
+    deactivate cache
+
+    service --> controller : ReportDTO
+    deactivate service
+    controller --> kong : 200 OK
+end
+
+kong --> dashboard : Response (JSON)
+deactivate kong
+
+dashboard -> dashboard : Formatage des données
+dashboard --> gestionnaire : Affiche rapport interactif
+deactivate dashboard
+
+== Export PDF ==
+
+gestionnaire -> dashboard : "Exporter en PDF"
+activate dashboard
+dashboard -> kong : POST /api/v1/reports/export
+activate kong
+
+kong -> controller : export_to_pdf()
+activate controller
+controller -> service : generate_pdf_export()
 activate service
 
-service -> db : SELECT product_id,\nname, quantity_sold,\nrevenue FROM products
+service -> db : GET report_data
 activate db
-db --> service : Résultats des ventes
+db --> service : Raw data
 deactivate db
 
-controller -> service : getOrdersOverview()
-activate service
-
-service -> db : SELECT order_id,\ndate, total_amount FROM orders
-activate db
-db --> service : Résultats des commandes
-deactivate db
-
-controller -> controller : Construire le rapport consolidé
+service --> controller : PDF bytes
 deactivate service
-
-controller --> api : 200 OK (JSON)
+controller --> kong : 200 (application/pdf)
 deactivate controller
 
-api --> ui : Rapport prêt à être affiché
-deactivate api
-
-ui --> ge : Affiche le rapport généré
-deactivate ui
+kong --> dashboard : Fichier PDF
+deactivate kong
+dashboard --> gestionnaire : Téléchargement PDF
+deactivate dashboard
 
 @enduml

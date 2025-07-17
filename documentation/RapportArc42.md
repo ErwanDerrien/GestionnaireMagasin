@@ -1,45 +1,20 @@
 # Liens des repos Github :
-- https://github.com/ErwanDerrien/Etape1_LOG430
-- https://github.com/ErwanDerrien/Lab0_LOG430
-- https://github.com/ErwanDerrien/Lab1_LOG430
-- https://github.com/ErwanDerrien/Lab2_LOG430
-- https://github.com/ErwanDerrien/Frontend_Lab2_LOG430
+
+- https://github.com/ErwanDerrien/GestionnaireMagasin
 
 # 1. Introduction et buts
 
-Le but de ce laboratoire est de concevoir un système de gestion de magasin.
+L'étape 2 du travail de session a pour but d'améliorer le travail de l'étape 1 en implémentant une API.
 
-Durant le laboratoire 1, une interface graphique simple a été conçu pour permettre l'utilisation des fonctionnalitées minimales implémentées. Le but du laboratoire 2 précisément est d'améliorer ce qui a été fait dans le laboratoire un, en plus d'implémenter de nouveaux requis.
-
-L'architecture monolithique 2-tiers de ce projet doit être amélioré vers un système distribué et scalable.
+Le but du travail de session est de concevoir un système de gestion de magasin.
 
 Les objectifs clés incluent :
 
-- La cohérence des donnéess entre les entités
-- Génération de rapports centralisés pour le siège social
-- Évolutivité vers une interface web
+- Implémenter une API rest (Lab3)
+- Implémenter un load balancer (Lab4)
+- Implémenter une API gateway (Lab5)
 
-## 1.1 Aperçu des exigences
-
-### Priorisation MoSCoW
-
-#### Must
-
-- UC1 – Générer un rapport consolidée des ventes
-- UC2 – Consulter le stock central et déeclencher un réapprovisionnement
-- UC3 – Visualiser les performances des magasins dans un tableau de bord
-
-### Should (Ne sont pas implémentés)
-
-- UC4 – Mettre à jour les produits depuis la maison mère
-- UC6 – Approvisionner un magasin depuis le centre logistique
-
-### Could (Ne sont pas implémentés)
-
-- UC7 – Alerter automatiquement la maison mère en cas de rupture critique
-- UC8 – Offrir une interface web minimale pour les gestionnaires
-
-## 1.2 Objectifs de Qualité
+## 1.1 Objectifs de Qualité
 
 ### Top 3 Qualités
 
@@ -50,13 +25,12 @@ Les objectifs clés incluent :
 
 2. **Évolutivité** :
 
-   - Ajout d'un magasin en <1 heure
    - Support pour extensions futures
 
 3. **Transférabilité** :
    - Les interfaces ne doivent pas pas dépendre du système d'exploitation pour être mises en marche
 
-## 1.3 Parties Prenantes
+## 1.2 Parties Prenantes
 
 | Rôle                | Préoccupations Majeures            |
 | ------------------- | ---------------------------------- |
@@ -67,8 +41,8 @@ Les objectifs clés incluent :
 
 ### Attentes Techniques
 
-- Documentation ADR complète
-- Tests automatisés >80% de couverture
+- Documentation API
+- Load tests
 - CI/CD avec validation
 
 # 2. Contraintes Architecturales
@@ -82,7 +56,6 @@ Les objectifs clés incluent :
 - **Conventions de code** :
   - Français pour le domaine métier
   - Anglais pour le code technique
-  - JavaDoc obligatoire
 
 # 3. Contexte et Périmètre
 
@@ -105,7 +78,9 @@ Les objectifs clés incluent :
 
 Format/Protocole : Interface graphique web
 
-![Usecases](../out/UML/Usecases/ContexteMétier/ContexteMétier.png)
+<!-- TODO update -->
+
+![Usecases](../out/documentation/UML/Usecases/ContexteMétier/ContexteMétier.png)
 
 ## 3.2 Contexte Technique
 
@@ -119,7 +94,7 @@ Format/Protocole : Interface graphique web
 - Doit coexister avec l'infrastructure CI/CD implémentée durant le lab 1
 - Doit le système doit rouler sur un docker container
 
-![ContexteTechnique](../out/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
+![ContexteTechnique](../out/documentation/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
 
 # 4. Stratégie de Solution
 
@@ -153,12 +128,9 @@ Format/Protocole : Interface graphique web
 
 - **Backend** :
 
+  - API Gateway : Kong
   - Python, API sur serveur Flask
   - Base de données : SQLite
-
-- **Frontend** :
-
-  - LitElements (découplée)
 
 - **DevOps** :
   - CI/CD : GitLab Pipelines
@@ -167,110 +139,141 @@ Format/Protocole : Interface graphique web
 
 ## 5.1 Vue Niveau 1 (Système Global)
 
-![BlockViewLevel1](../out/UML/Deploiement/BlockViewLevel1/Niveau1.png)
+![BlockViewLevel1](../out/documentation/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 
 **Composants principaux** :
 
-| Bloc            | Responsabilités                       | Interfaces       |
-| --------------- | ------------------------------------- | ---------------- |
-| Site Web        | Point d'accès, Communiquer avec l'API | javascript fetch |
-| Serveur Flask   | Gestion de la logique sytème          | API REST         |
-| Base de données | Persistence des donnés                | SQLite           |
+| Bloc               | Responsabilités                       | Interfaces              |
+| ------------------ | ------------------------------------- | ----------------------- |
+| Site Web           | Interface utilisateur                 | HTTP vers API Gateway   |
+| Kong (API Gateway) | Routage, authentification, throttling | REST/HTTP               |
+| Services Flask     | Logique métier                        | API interne (gRPC/HTTP) |
+| SQLite             | Persistence des données               | ORM (SQLAlchemy/Peewee) |
 
 **Relations** :
 
-- Tout communication externe au Docker est gérée par le serveur Flask avant d'accéder à la base de données
-- L'interface orchestre les interactions utilisateur et la communication au serveur
+- Toute communication externe passe par le gateway Kong avant d'atteindre les services Flask
+- Le gateway orchestre le load balancing entre les instances Flask
+- Les services Flask accèdent directement à la base SQLite via ORM
+- Le site web communique exclusivement avec le gateway (port 80/443)
+
+**Contraintes techniques** :
+
+- Isolation Docker complète (aucun accès direct aux services Flask depuis l'extérieur)
+- Les serveurs Flask implémente :
+  - Cache Redis
+  - Logging Prometheus
+  - Authentification JWT
 
 ## 5.2 Vue Niveau 2 (Détail Docker container)
 
-![BlockViewLevel2](../out/UML/Deploiement/BlockViewLevel2/Niveau2.png)
+![BlockViewLevel2](../out/documentation/UML/Deploiement/BlockViewLevel2/Niveau2.png)
 
-**Structure interne** :
+**Structure interne du conteneur Flask** :
 
-1. **Serveur Flask** :
+1. **Couche Contrôleur**
 
-   - Expose la logique métier (Rerche de produits, Gestion de commandes)
-   - Contrôle les transactions
-   - API sur le port 8080
+   - Gestion des requêtes HTTP/REST (port 8080)
+   - Validation des entrées utilisateur
 
-2. **Base de données SQLite et ORM** :
-   - Abstraction de l'accès aux données
-   - Gère le mapping objet-relationnel
+2. **Couche Service**
 
-**Principe clé** :  
-Séparation stricte entre logique métier (Service) et persistance (ORM).
+   - Logique métier (recherche produits, gestion commandes)
+   - Contrôle des transactions
+
+3. **Couche Modèle/DAO**
+   - Mapping objet-relationnel (SQLAlchemy)
+   - Abstraction SQLite/MySQL
+
+**Principes clés** :
+
+- Architecture 3-tiers stricte (Controller → Service → DAO)
+- Isolation Docker complète (ports exposés : 8080 uniquement)
+- Injection de dépendances entre couches
 
 # 6. Vue de runtime
 
 ## UC1 et UC3 - Génération et visualistion de rapport
 
-![SequenceRestock](../out/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
+![SequenceSeeStats](../out/documentation/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
 
 ## UC2 – Consulter le stock central et déclencher un réapprovisionnement
 
-![SequenceSeeStats](../out/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
+![SequenceRestock](../out/documentation/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
 
 ## Sauvegarder une commande
 
-![SequenceSaveOrder](../out/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
+![SequenceSaveOrder](../out/documentation/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
 
 # 7. Vue de déploiement
 
-![Physique](../out/UML/Physique/DeploymentView/Deployment%20View.png)
+![Physique](../out/documentation/UML/Physique/DeploymentView/Deployment%20View.png)
 
-### Node
+### Nœuds
 
-| Node            | Description                                                                                           |
-| --------------- | ----------------------------------------------------------------------------------------------------- |
-| Caisse          | Poste utilisé par le caissier pour interagir avec le système via l’interface Web.                     |
-| Ordinateur      | Utilisé par les gestionnaires et dirigeants pour accéder aux fonctions de gestion et de consultation. |
-| Site Web        | Interface Web client accessible via HTTPS. Sert de point d’entrée principal.                          |
-| Docker          | Conteneur Docker déployé sur un serveur distant. Héberge les composants de backend.                   |
-| Serveur Flask   | Roule à partir du Docker container. Fournit une API au backend.                                       |
-| API             | Fournit une interface REST entre le site Web et la logique métier.                                    |
-| Contrôleur      | Gère la logique de traitement des requêtes.                                                           |
-| Services        | Contient la logique métier, appelle la base de données via un ORM.                                    |
-| Base de données | Persistance des données métier du système.                                                            |
+| Nœud                  | Description                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| **Caisse**            | Poste client pour les caissiers, accès via l’interface Web.  |
+| **Ordinateur**        | Accès Web des gestionnaires et dirigeants.                   |
+| **Site Web**          | Interface Web sécurisée, point d’entrée utilisateur.         |
+| **Kong Gateway**      | API Gateway assurant le routage et la sécurité des requêtes. |
+| **Auth Service**      | Gère l’authentification et les utilisateurs.                 |
+| **Order Service**     | Gère les commandes, utilise PostgreSQL et Redis.             |
+| **Product Service**   | Gère les produits, utilise PostgreSQL et Redis.              |
+| **Reporting Service** | Génère des rapports, communique avec PostgreSQL.             |
+| **PostgreSQL**        | Base de données relationnelle principale.                    |
+| **Redis**             | Stockage temporaire pour cache et paniers.                   |
+| **Prometheus**        | Collecte de métriques pour le monitoring.                    |
 
-Les terminaux clients (caisses et ordinateurs) communiquent avec le site web via HTTPS. Le site Web appelle ensuite l’API REST exposée par le backend.
+## Description
 
-### Prérequis
+Les utilisateurs accèdent au site Web via HTTPS. Celui-ci appelle les services via Kong Gateway.  
+Les microservices sont conteneurisés (Docker) et accèdent à PostgreSQL et Redis.  
+Prometheus collecte les métriques de Kong et des services.
 
-- **Client** : Navigateur Web moderne, connectivité Internet via HTTPS.
-- **Serveur** : Environnement Docker avec les services applicatifs, base de données relationnelle, et connectivité réseau sécurisée.
+## Prérequis
+
+- **Client** : Navigateur Web moderne, HTTPS.
+- **Serveur** : Environnement Docker avec les services, PostgreSQL, Redis et Prometheus.
 
 # 8. Concepts transversaux
 
-Cette section décrit les concepts transversaux appliqués dans tout le système. Ils garantissent la cohérence, la maintenabilité et la qualité interne de l’architecture. Ces concepts influencent plusieurs blocs fonctionnels et techniques.
-
 ## 8.1 Sécurité
 
-Le système applique une séparation stricte des rôles (caissier, gestionnaire, dirigeant). Toutes les communications client-serveur sont protégées par HTTPS. Un mécanisme d’authentification est requis pour accéder aux interfaces sensibles, et les actions sont contrôlées selon les rôles attribués aux utilisateurs.
+- Authentification JWT via Kong Gateway
+- Chiffrement TLS pour toutes les communications
+- RBAC avec rôles : Caissier/Gestionnaire/Admin
+- Protection contre les attaques (XSS, SQLi)
 
-## 8.2 Architecture REST uniforme
+## 8.2 Architecture API
 
-Toutes les interactions entre le site Web et le backend utilisent des API REST. Les conventions suivantes sont respectées :
+- Versioning des endpoints (`/api/v2/...`)
+- Cache HTTP avec Redis
+- Documentation Swagger auto-générée
 
-- URLs structurées par ressource (ex. `/products`, `/orders/report`)
-- Utilisation cohérente des méthodes HTTP (GET, POST, PUT, DELETE)
-- Réponses en JSON, avec codes d’état HTTP standardisés pour indiquer les succès et les erreurs.
+## 8.3 Validation
 
-## 8.3 Validation des données
+- Double validation :
+  1. Schémas JSON (FastAPI/Pydantic)
+  2. Règles métier dans les services
+- Messages d'erreur standardisés
 
-Les entrées des utilisateurs (depuis la caisse ou l’interface de gestion) sont systématiquement validées avant traitement :
+## 8.4 Conteneurisation
 
-- Au niveau de l’API : vérification des formats (ex. types, champs obligatoires)
-- Au niveau métier : règles spécifiques (ex. stock suffisant avant une vente)
-  Cette approche renforce la robustesse du système et évite la propagation d’erreurs jusqu’à la base de données.
+- Services découpés en microcontainers
+- Orchestration avec Docker Compose
+- Variables d'environnement sécurisées
+- Health checks intégrés
 
-## 8.4 Conteneurisation avec Docker
+## 8.5 Monitoring
 
-Le backend est entièrement déployé dans un conteneur Docker, ce qui permet une homogénéité de l’environnement entre développement, tests et production. Tous les composants (API, services, base de données) sont configurés pour fonctionner ensemble dans un environnement isolé et reproductible.
+- Métriques temps-réel (Prometheus)
+- Logs centralisés (Fluentd)
+- Dashboard Grafana unifié
 
 # 9. Décision d'architecture
 
-## ADR 1 Choix de Flask pour l'API
+## ADR 1 - Architecture monolithique modulaire avec instances dédiées
 
 ### Statut
 
@@ -278,23 +281,25 @@ Implémenté
 
 ### Contexte
 
-Lors du laboratoire 1, la communication entre l'interface utilisateur et la base de données était limitée et directe, avec peu de logique métier côté serveur. Avec l'évolution vers le laboratoire 2, le système doit gérer davantage de règles métier, de validations et d’interactions complexes entre les entités (commandes, produits, magasins, utilisateurs).  
-Il fallait un moyen simple, flexible et rapide à mettre en œuvre pour exposer ces fonctionnalités sous forme d’API REST, tout en gardant la maintenance facile et la possibilité d’évolution.
+Dans l'évolution du système vers une architecture distribuée, nous avons envisagé deux options :
+
+1. Découper complètement les API par service (Auth, Orders, Products)
+2. Garder une structure monolithique modulaire mais avec des instances Docker dédiées
+
+Le système nécessitait :
+
+- Une cohérence forte des règles métiers
+- Une maintenance simplifiée des validations communes
+- Un déploiement scalable tout en conservant une logique unifiée
 
 ### Décision
 
-Nous avons décidé d’utiliser Flask comme framework backend pour l’API. Flask est léger, simple à prendre en main, compatible avec SQLAlchemy (notre ORM), et permet de construire des routes REST rapidement et efficacement.  
-Cela nous offre un contrôle granulaire sur les requêtes, les réponses, la gestion des erreurs et la sécurité, tout en gardant la possibilité d’étendre ou d’ajouter des fonctionnalités facilement.
+Nous avons choisi de conserver une API complète dans chaque instance, mais de spécialiser les instances par service via :
 
-### Conséquences
+- Un routing centralisé par Kong Gateway (`/auth`, `/orders`, `/products`)
+- La même base de code déployée dans tous les containers
 
-- L’API est découplée de la couche frontend, facilitant les développements parallèles et la maintenance.
-- Le backend peut évoluer indépendamment, par exemple en ajoutant des authentifications, middlewares, ou en intégrant d’autres services.
-- Flask, grâce à sa simplicité, réduit la complexité de mise en place initiale, ce qui accélère le développement.
-- Le choix impose de gérer manuellement certains aspects (gestion des erreurs, sécurité) mais offre aussi plus de flexibilité.
-- Le projet nécessite un serveur dédié pour héberger cette API, ce qui est pris en compte dans le déploiement via Docker.
-
-## ADR 2 Choix de SQLite pour la persistance des données
+## ADR 2 - Choix de Kong comme API Gateway
 
 ### Statut
 
@@ -302,162 +307,210 @@ Implémenté
 
 ### Contexte
 
-Pour le laboratoire 1, il fallait une solution simple et légère pour stocker les données localement pendant le développement initial. Les exigences n’étaient pas encore très complexes et le système devait rester facile à configurer et à déployer.  
-Une base de données relationnelle intégrée, sans serveur à gérer, était idéale pour ce contexte.
+Avec la nécessité de gérer :
+
+- 4 services (auth, product, order, other)
+- Jusqu'à N instances par service (configurable)
+- Plusieurs algorithmes de load balancing
+- Un système d'authentification unifié
+
+Nous devions choisir une solution pour :
+
+1. Router le trafic vers les bonnes instances
+2. Gérer le load balancing dynamique
+3. Centraliser l'authentification
 
 ### Décision
 
-Nous avons choisi d’utiliser SQLite comme solution de persistance. SQLite est une base de données relationnelle embarquée, qui stocke les données dans un simple fichier local.  
-Ce choix facilite le déploiement, évite la complexité d’un serveur de base de données et offre un bon support SQL pour les besoins actuels.
+Nous avons choisi Kong pour :
+
+**Configuration dynamique** :
+
+```bash
+configure_kong_service() {
+  # Création des upstreams avec algorithmes variables
+  curl -X POST http://localhost:8001/upstreams \
+    -d "name=${service}-upstream" \
+    -d "algorithm=${algorithm}"  # rr/lc/hash
+
+  # Ajout dynamique des targets
+  for i in $(seq 1 $count); do
+    curl -X POST /upstreams/${service}-upstream/targets \
+      -d "target=${service}_instance_$i:${port}"
+  done
+}
+```
+
+**Avantages clés** :
+
+- Configuration via API REST (intégrable dans nos scripts)
+- Support natif des algorithmes de load balancing
+- Plugins JWT et Prometheus prêts à l'emploi
+- Health checks automatiques
 
 ### Conséquences
 
-- Le système est facile à configurer et à démarrer, notamment pour les tests et le développement local.
-- La gestion des données reste performante tant que la charge est modérée et les données de taille raisonnable.
-- Ce choix limite la scalabilité et la gestion de connexions concurrentes par rapport à un serveur SQL dédié (ex : MySQL, PostgreSQL).
-- Lors du passage à un contexte plus complexe (lab 2), un changement vers une base plus robuste pourra être envisagé.
-- Le fichier de base de données peut être facilement sauvegardé, copié ou déplacé.
+**Implémentation actuelle** :
+
+- Un seul point d'entrée (`:80`)
+- Routes dédiées par service (`/auth`, `/products`, etc.)
+- Monitoring unifié via `/metrics`
+
+**Exemple de déploiement** :
+
+```bash
+# Déploiement avec 2 instances auth et 3 products
+./deploy.sh --auth 2 rr --products 3 lc
+```
+
+**Bénéfices observés** :
+
+- Scaling horizontal transparent
+- Zero-downtime lors des déploiements
+- Métriques consolidées
+
+**Limitations** :
+
+- Nécessite PostgreSQL pour stocker la config
+- Courbe d'apprentissage pour l'API Admin
 
 # 10. Exigences de qualité
 
-Cette section rassemble les exigences de qualité applicables au système. Les exigences critiques sont détaillées à la section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) et sont simplement référencées ici.
-
-Les scénarios ci-dessous décrivent des exigences de qualité supplémentaires, jugées utiles mais non critiques. Leur atteinte améliore la robustesse, la maintenabilité ou l’expérience utilisateur, sans être bloquante en cas d'échec partiel.
+Cette section rassemble les exigences de qualité applicables au système. Les exigences critiques sont listées à la section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité). Les autres scénarios améliorent la robustesse, la maintenabilité ou l’expérience utilisateur, sans être bloquants.
 
 ## 10.1 Référence aux objectifs de qualité principaux
 
-Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les trois qualités prioritaires :
+Voir section [1.2 Objectifs de Qualité](#12-objectifs-de-qualité) pour les priorités :
 
 - **Cohérence des données**
 
   - Synchronisation des stocks entre magasins
-  - Résolution des conflits entre écritures concurrentes
+  - Gestion des écritures concurrentes
 
 - **Évolutivité**
 
-  - Intégration d’un nouveau magasin en moins d’une heure
-  - Support anticipé pour nouvelles fonctionnalités
+  - Intégration rapide d’un nouveau magasin
+  - Anticipation des futures fonctionnalités
 
 - **Transférabilité**
-  - Interfaces compatibles multiplateformes
-  - Déploiement standardisé via Docker
+  - Interfaces multiplateformes
+  - Déploiement standardisé (Docker)
 
 ## 10.2 Scénarios de qualité secondaires
 
-| ID     | Description                                                                                                                 |
-| ------ | --------------------------------------------------------------------------------------------------------------------------- |
-| 10.2.1 | Le site Web doit rester utilisable sur une connexion mobile ou instable (latence élevée, débit réduit).                     |
-| 10.2.2 | Toute opération de vente doit être confirmée à l’écran en moins de 2 secondes.                                              |
-| 10.2.3 | L’ajout d’une fonctionnalité (ex. gestion des retours) ne doit nécessiter aucune modification du service `Stock`.           |
-| 10.2.4 | La base de données doit supporter 10 utilisateurs simultanés sans ralentissement perceptible.                               |
-| 10.2.5 | Le code backend doit atteindre 80 % de couverture par des tests unitaires automatisés.                                      |
-| 10.2.6 | Le système doit fonctionner sans dépendre d’un service externe tiers (hors infrastructure fournie).                         |
-| 10.2.7 | Une modification mineure dans la configuration Docker ne doit pas invalider le déploiement (robustesse à l’infrastructure). |
+| ID     | Description                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| 10.2.1 | Le site Web doit rester utilisable sur une connexion lente ou instable.                          |
+| 10.2.2 | L’ajout d’une fonctionnalité ne doit pas nécessiter de modification du service `Stock`.          |
+| 10.2.3 | La base de données doit supporter 10 utilisateurs simultanés sans ralentissement notable.        |
+| 10.2.4 | Le backend doit atteindre 80 % de couverture de tests unitaires automatisés.                     |
+| 10.2.5 | Le système doit fonctionner sans dépendre de services externes non inclus dans l’infrastructure. |
 
 # 11. Risques et Dette Technique
 
 ## 11.1 Risques Techniques
 
-| Priorité | Risque                       | Impact                                  | Solution Proposée                                     | Statut    |
-| -------- | ---------------------------- | --------------------------------------- | ----------------------------------------------------- | --------- |
-| **1**    | Monolithisation progressive  | Réduction de la scalabilité             | Découper en microservices dès que le budget le permet | Surveillé |
-| **2**    | Performance des requêtes SQL | Ralentissement avec l'ajout de magasins | Ajout d'index et optimisation des requêtes            | En cours  |
-| **3**    | Dépendance à la VM imposée   | Difficulté de migration cloud           | Containerisation complète avec Docker                 | Mitigé    |
+| Priorité | Risque                      | Impact                                | Solution Proposée                            | Statut    |
+| -------- | --------------------------- | ------------------------------------- | -------------------------------------------- | --------- |
+| **1**    | Monolithisation progressive | Perte de scalabilité                  | Découplage en microservices dès que possible | Surveillé |
+| **2**    | Performance SQL             | Ralentissement avec ajout de magasins | Indexation + requêtes optimisées             | En cours  |
+| **3**    | Dépendance VM               | Difficulté de migration vers le cloud | Passage complet à Docker                     | Mitigé    |
 
 ## 11.2 Dette Technique
 
-| Composant          | Dette                             | Conséquence           | Plan de Remédiation          |
-| ------------------ | --------------------------------- | --------------------- | ---------------------------- |
-| Interface terminal | Code legacy du Lab 1              | Maintenance difficile | Migration vers Vue.js        |
-| Synchronisation    | Approche polling plutôt qu'events | Latence élevée        | Implémentation RabbitMQ      |
-| Tests              | Couverture à 65%                  | Risque de régression  | Ajout de tests d'intégration |
+| Composant       | Dette                          | Conséquence           | Plan de Remédiation          |
+| --------------- | ------------------------------ | --------------------- | ---------------------------- |
+| Synchronisation | Polling au lieu d’événements   | Latence élevée        | Intégration de RabbitMQ      |
+| Tests           | Couverture partielle seulement | Risques de régression | Ajout de tests d’intégration |
 
 ## 11.3 Risques Métier
 
-| Probabilité | Risque                          | Impact                | Atténuation                  |
-| ----------- | ------------------------------- | --------------------- | ---------------------------- |
-| Élevée      | Changement des besoins magasins | Refonte partielle     | Architecture modulaire       |
-| Moyenne     | Concurrence solutions SaaS      | Obsolescence          | Focus sur intégration locale |
-| Faible      | Évolution réglementaire         | Mises à jour urgentes | Veille active                |
+| Probabilité | Risque                         | Impact                 | Atténuation                  |
+| ----------- | ------------------------------ | ---------------------- | ---------------------------- |
+| Élevée      | Changement des besoins métiers | Refonte partielle      | Modularité de l’architecture |
+| Moyenne     | Concurrence de solutions SaaS  | Obsolescence           | Ciblage local + intégration  |
+| Faible      | Évolution réglementaire        | Urgence de mise à jour | Veille active                |
 
-**Stratégie de gestion** :
+**Stratégie** :
 
 - Revue trimestrielle des risques
-- Budget dédié pour la dette critique
-- Priorisation via matrice impact/coût
+- Budget pour la dette critique
+- Priorisation selon impact/coût
 
 # 12. Glossaire
 
 ## Termes Métiers
 
-| Terme                   | Définition                                                           |
-| ----------------------- | -------------------------------------------------------------------- |
-| **Magasin**             | Point de vente physique géré par le système                          |
-| **Siège Social**        | Centre administratif supervisant l'ensemble des magasins             |
-| **Réapprovisionnement** | Processus de commande de nouveaux stocks depuis le centre logistique |
-| **UC (Cas d'Usage)**    | Scénario fonctionnel clé du système (ex: UC1 = Rapport consolidé)    |
-| **KPI**                 | Indicateur de performance suivi dans les tableaux de bord            |
+| Terme                   | Définition                                             |
+| ----------------------- | ------------------------------------------------------ |
+| **Magasin**             | Point de vente physique                                |
+| **Siège Social**        | Centre administratif supervisant les magasins          |
+| **Réapprovisionnement** | Commande de stock auprès du centre logistique          |
+| **UC (Cas d’Usage)**    | Scénario fonctionnel clé (ex: UC1 = Rapport consolidé) |
+| **KPI**                 | Indicateur de performance (Key Performance Indicator)  |
 
 ## Termes Techniques
 
-| Terme          | Définition                                                          |
-| -------------- | ------------------------------------------------------------------- |
-| **VM**         | Machine virtuelle hébergeant l'application                          |
-| **CI/CD**      | Pipeline d'intégration/déploiement continu (GitLab)                 |
-| **JWT**        | JSON Web Token utilisé pour l'authentification                      |
-| **ORM**        | Couche de mapping objet-relationnel                                 |
-| **WebSockets** | Protocole de communication temps réel entre magasins                |
-| **ADR**        | Architectural Decision Record - Document de décision architecturale |
+| Terme          | Définition                                                    |
+| -------------- | ------------------------------------------------------------- |
+| **VM**         | Machine virtuelle                                             |
+| **CI/CD**      | Intégration et déploiement continus                           |
+| **JWT**        | JSON Web Token (authentification sécurisée)                   |
+| **ORM**        | Outil de mapping entre objets et base de données              |
+| **WebSockets** | Communication bidirectionnelle en temps réel                  |
+| **ADR**        | Architectural Decision Record (décision technique documentée) |
 
 ## Acronymes
 
 | Acronyme | Signification                                                                 |
 | -------- | ----------------------------------------------------------------------------- |
 | **API**  | Application Programming Interface                                             |
-| **DTO**  | Data Transfer Object                                                          |
+| **DAO**  | Data Access Object                                                            |
 | **DDD**  | Domain-Driven Design                                                          |
 | **MVC**  | Modèle-Vue-Contrôleur                                                         |
-| **ACID** | Propriétés des transactions SQL (Atomicité, Cohérence, Isolation, Durabilité) |
+| **ACID** | Propriétés des transactions SQL : Atomicité, Cohérence, Isolation, Durabilité |
 
 ## Technologies
 
-| Technologie   | Usage                                     |
-| ------------- | ----------------------------------------- |
-| **MySQL**     | Base de données relationnelle principale  |
-| **Python**    | Langage backend principal                 |
-| **Vue.js**    | Framework pour l'interface web            |
-| **Docker**    | Plateforme de conteneurisation            |
-| **RabbitMQ**  | Système de messagerie pour les événements |
-| **GitLab CI** | Pipeline d'intégration continue           |
+| Technologie   | Usage                            |
+| ------------- | -------------------------------- |
+| **MySQL**     | Base de données relationnelle    |
+| **Python**    | Langage backend principal        |
+| **Vue.js**    | Interface Web                    |
+| **Docker**    | Conteneurisation et déploiement  |
+| **RabbitMQ**  | Communication entre services     |
+| **GitLab CI** | Pipelines d’intégration continue |
 
 ## Composants Système
 
-| Composant            | Description                                      |
-| -------------------- | ------------------------------------------------ |
-| **Service Stock**    | Module central de gestion des inventaires        |
-| **DAO**              | Couche d'accès aux données                       |
-| **Tableau de bord**  | Interface de visualisation des KPI               |
-| **API REST**         | Interface de programmation pour les intégrations |
-| **Conteneur Docker** | Unité de déploiement isolée                      |
+| Composant            | Description                                   |
+| -------------------- | --------------------------------------------- |
+| **Service Stock**    | Gestion des inventaires                       |
+| **DAO**              | Couche d’accès aux données                    |
+| **Tableau de bord**  | Visualisation des indicateurs (KPI)           |
+| **API REST**         | Point d’entrée pour les intégrations externes |
+| **Conteneur Docker** | Unité isolée pour l’exécution d’un composant  |
+
+![LoadTestsLab4](../documentation/monitoring/load_tests_lab4/hash_10_instances/hash_10_instances-10vus-1min.pdf)
 
 # 12. Diagrammes restants
 
-![BlockViewLevel1](../out/UML/Deploiement/BlockViewLevel1/Niveau1.png)
+![BlockViewLevel1](../out/documentation/UML/Deploiement/BlockViewLevel1/Niveau1.png)
 
-![BlockViewLevel2](../out/UML/Deploiement/BlockViewLevel2/Niveau2.png)
+![BlockViewLevel2](../out/documentation/UML/Deploiement/BlockViewLevel2/Niveau2.png)
 
-![ContexteTechnique](../out/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
+![ContexteTechnique](../out/documentation/UML/Deploiement/ContexteTechnique/ContexteTechnique.png)
 
-![Logique](../out/UML/Logique/ProjectClasses/ProjectClasses.png)
+![Logique](../out/documentation/UML/Logique/ProjectClasses/ProjectClasses.png)
 
-![Physique](../out/UML/Physique/DeploymentView/Deployment%20View.png)
+![Physique](../out/documentation/UML/Physique/DeploymentView/Deployment%20View.png)
 
-![Process](../out/UML/Processus/Process/ProcessServicesSwitchCase.png)
+![Process](../out/documentation/UML/Processus/Process/ProcessServicesSwitchCase.png)
 
-![SequenceRestock](../out/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
+![SequenceRestock](../out/documentation/UML/Processus/SequenceRestock/UC2%20-%20Consulter%20le%20stock%20et%20réapprovisionnement.png)
 
-![SequenceSaveOrder](../out/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
+![SequenceSaveOrder](../out/documentation/UML/Processus/SequenceSaveOrder/Sauvegarder%20une%20commande.png)
 
-![SequenceSeeStats](../out/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
+![SequenceSeeStats](../out/documentation/UML/Processus/SequenceSeeStats/UC1%20et%20UC3%20-%20Génération%20et%20visualistion%20de%20rapport.png)
 
-![Usecases](../out/UML/Usecases/ContexteMétier/ContexteMétier.png)
+![Usecases](../out/documentation/UML/Usecases/ContexteMétier/ContexteMétier.png)

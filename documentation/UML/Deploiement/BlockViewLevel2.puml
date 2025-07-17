@@ -4,19 +4,42 @@ skinparam {
   ComponentStyle rectangle
 }
 
-component "Docker container" as dc {
-  component "Serveur Flask" as sf {
-    [API] as api
-    [Recherche de produits] as products
-    [Sauvegarde de commandes] as orders
+left to right direction
+
+component "Instance Docker Flask" as dc {
+  component "Controllers" {
+    rectangle order_controller as oc
+    rectangle product_controller as pc
+    rectangle auth_controller as ac
+    rectangle other_controller as oc2
+  }
+  component "Services" {
+    rectangle order_controller as os
+    rectangle product_controller as ps
+    rectangle auth_controller as as
+    rectangle other_controller as os2
+  }
+  component "Models" {
+    rectangle order as orders
+    rectangle product as products
+    rectangle auth as auth
+    rectangle other as other
+  }
+  component "DAOs" {
+    rectangle order_dao as od
+    rectangle product_dao as pd
   }
   database "MySQL" as db
 }
 
-sf - api
-api -- products
-api -- orders
-products --> db : ORM
-orders --> db : ORM
-sf - dc : API sur :8080
+dc -- Controllers : API sur :8080
+Models -> Controllers
+Models -> Services
+Models -> DAOs
+oc --> os
+pc --> ps
+os --> od
+ps --> pd
+od --> db
+pd --> db
 @enduml
